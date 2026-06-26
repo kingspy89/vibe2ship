@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "database": "ai-studio-civicissuetracke-3959991f-9888-486b-895e-4d04a1f3c6dd",
+    "rules": "firestore.rules"
+  }
+}
