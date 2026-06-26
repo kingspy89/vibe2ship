@@ -17,7 +17,7 @@ export function Home() {
   const [stats, setStats] = useState({ total: 0, resolved: 0 });
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const navigate = useNavigate();
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyAwy1x1UWkxtrsIF7USmxbyfcdHDAB2Nzk';
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
   useEffect(() => {
     const q = query(collection(db, 'issues'), orderBy('priority_score', 'desc'));

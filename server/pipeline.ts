@@ -80,7 +80,7 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
 Caption provided by user: "${caption || 'None'}"`;
 
   const response = await getAI().models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-pro-preview',
     contents: [
       prompt,
       {
@@ -195,7 +195,7 @@ Return a JSON object with:
     };
 
     const mergeResponse = await getAI().models.generateContent({
-      model: 'gemini-2.5-flash', // fast reasoning
+      model: 'gemini-3.1-flash-lite', // fast reasoning
       contents: reasoningPrompt,
       config: {
         responseMimeType: "application/json",
@@ -247,7 +247,7 @@ Scoring Rubric (1-5):
 Return the JSON output.`;
 
   const response = await getAI().models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-pro-preview',
     contents: [
       prompt,
       {

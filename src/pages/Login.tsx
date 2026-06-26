@@ -42,7 +42,7 @@ export function Login() {
       setError('');
       if (isRegistering) {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await setDoc(doc(db, 'admins', cred.user.uid), { email, role: 'admin' });
+        await setDoc(doc(db, 'users', cred.user.uid), { email, role: 'admin' }, { merge: true });
       } else {
         await loginWithEmail(email, password);
       }

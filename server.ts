@@ -195,8 +195,68 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+  });
+
+  const { WebSocketServer } = await import("ws");
+  const { GoogleGenAI, Modality } = await import("@google/genai");
+  const wss = new WebSocketServer({ server: httpServer, path: "/api/live" });
+  
+  wss.on("connection", async (clientWs) => {
+    try {
+      const ai = new GoogleGenAI({ 
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+      const session = await ai.live.connect({
+        model: "gemini-3.1-flash-live-preview",
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
+          },
+          systemInstruction: "You are a helpful civic issue tracking assistant. Users can ask you how to report issues, check statuses, or what categories exist. Be concise and friendly.",
+        },
+        callbacks: {
+          onmessage: (message) => {
+            const audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            if (audio && clientWs.readyState === 1) clientWs.send(JSON.stringify({ audio }));
+            if (message.serverContent?.interrupted && clientWs.readyState === 1)
+              clientWs.send(JSON.stringify({ interrupted: true }));
+          },
+          onerror: (err) => {
+            console.error("Live API Error:", err);
+          },
+          onclose: () => {
+            console.log("Live API Closed");
+            if (clientWs.readyState === 1) {
+              clientWs.close();
+            }
+          }
+        },
+      });
+
+      clientWs.on("message", (data) => {
+        try {
+          const { audio } = JSON.parse(data.toString());
+          if (audio) {
+            session.sendRealtimeInput({
+              audio: { data: audio, mimeType: "audio/pcm;rate=16000" },
+            });
+          }
+        } catch (e) {
+          console.error("Error sending input", e);
+        }
+      });
+
+      clientWs.on("close", () => {
+        session.close();
+      });
+    } catch (e) {
+      console.error("Error setting up Live API session:", e);
+      clientWs.close();
+    }
   });
 }
 

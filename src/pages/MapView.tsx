@@ -46,7 +46,7 @@ function MapContent({ issues, navigate, getPinColor }: { issues: Issue[], naviga
 export function MapView() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const navigate = useNavigate();
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyAwy1x1UWkxtrsIF7USmxbyfcdHDAB2Nzk';
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
   useEffect(() => {
     const q = query(collection(db, 'issues'), where('status', '!=', 'Archived'));

@@ -8,10 +8,13 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export function Analytics() {
   const [issues, setIssues] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     const unsub = onSnapshot(collection(db, 'issues'), (snap) => {
       setIssues(snap.docs.map(doc => doc.data()));
+      setLoading(false);
     });
     return () => unsub();
   }, []);
@@ -23,7 +26,7 @@ export function Analytics() {
   ].filter(d => d.value > 0);
 
   const categoryCounts = issues.reduce((acc, curr) => {
-    const cat = curr.category.replace('_', ' ');
+    const cat = (curr.category || '').replace('_', ' ');
     acc[cat] = (acc[cat] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -33,15 +36,81 @@ export function Analytics() {
     value: categoryCounts[k]
   }));
 
-  // Simulate historical data for resolution trend to make chart look good
-  const trendData = [
-    { month: 'Jan', reported: 45, resolved: 30 },
-    { month: 'Feb', reported: 52, resolved: 38 },
-    { month: 'Mar', reported: 38, resolved: 42 },
-    { month: 'Apr', reported: 65, resolved: 55 },
-    { month: 'May', reported: 48, resolved: 50 },
-    { month: 'Jun', reported: issues.length, resolved: issues.filter(i => i.status === 'Resolved').length },
-  ];
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const trendsByMonth: Record<string, { reported: number, resolved: number }> = {};
+  
+  issues.forEach(issue => {
+    if (!issue.created_at) return;
+    const date = new Date(issue.created_at);
+    const monthStr = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+    if (!trendsByMonth[monthStr]) {
+      trendsByMonth[monthStr] = { reported: 0, resolved: 0 };
+    }
+    trendsByMonth[monthStr].reported += 1;
+    if (issue.status === 'Resolved') {
+      trendsByMonth[monthStr].resolved += 1;
+    }
+  });
+
+  const trendData = Object.keys(trendsByMonth).map(month => ({
+    month,
+    reported: trendsByMonth[month].reported,
+    resolved: trendsByMonth[month].resolved,
+  }));
+
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-100 tracking-tight">System Analytics</h1>
+          <p className="text-sm text-slate-400 mt-1">Deep dive into issue reporting and resolution metrics.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="bg-[#1C1D26] border-slate-800/50">
+            <CardHeader>
+              <div className="h-6 w-48 bg-slate-800 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent className="h-80 flex flex-col justify-end space-y-4">
+              <div className="flex items-end justify-between h-full px-4">
+                <div className="w-[10%] h-[30%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[10%] h-[50%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[10%] h-[70%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[10%] h-[40%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[10%] h-[90%] bg-slate-800 rounded animate-pulse"></div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#1C1D26] border-slate-800/50">
+            <CardHeader>
+              <div className="h-6 w-48 bg-slate-800 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent className="h-80 flex justify-center items-center">
+              <div className="w-48 h-48 rounded-full border-[12px] border-slate-800 border-t-slate-700 animate-spin"></div>
+            </CardContent>
+          </Card>
+
+          <Card className="col-span-1 md:col-span-2 bg-[#1C1D26] border-slate-800/50">
+            <CardHeader>
+              <div className="h-6 w-48 bg-slate-800 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent className="h-80 flex flex-col justify-end space-y-4">
+              <div className="flex items-end justify-between h-full px-10">
+                <div className="w-[8%] h-[60%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[8%] h-[20%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[8%] h-[80%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[8%] h-[40%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[8%] h-[90%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[8%] h-[50%] bg-slate-800 rounded animate-pulse"></div>
+                <div className="w-[8%] h-[30%] bg-slate-800 rounded animate-pulse"></div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">

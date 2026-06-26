@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, updateDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, updateDoc, doc, getDocs, where, addDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Issue } from '../types';
 import { Card, CardContent } from '../components/ui/Card';
@@ -30,6 +30,37 @@ export function Admin() {
         status: newStatus,
         updated_at: Date.now()
       });
+      
+      const issueObj = issues.find(i => i.issue_id === id);
+      const issueTitle = issueObj ? issueObj.auto_title : 'Issue';
+
+      const userIds = new Set<string>();
+
+      const reportsQuery = query(collection(db, 'reports'), where('issue_id', '==', id));
+      const reportsSnap = await getDocs(reportsQuery);
+      reportsSnap.forEach(doc => userIds.add(doc.data().user_id));
+
+      const verificationsQuery = query(collection(db, 'verifications'), where('issue_id', '==', id));
+      const verificationsSnap = await getDocs(verificationsQuery);
+      verificationsSnap.forEach(doc => userIds.add(doc.data().user_id));
+
+      for (const userId of Array.from(userIds)) {
+        if (!userId) continue;
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.email) {
+            await addDoc(collection(db, 'mail'), {
+              to: userData.email,
+              message: {
+                subject: `Status Update: ${issueTitle}`,
+                text: `The status of an issue you reported or verified (${issueTitle}) has changed to: ${newStatus}.`,
+                html: `<p>The status of an issue you reported or verified (<strong>${issueTitle}</strong>) has changed to: <strong>${newStatus}</strong>.</p>`
+              }
+            });
+          }
+        }
+      }
     } catch (e) {
       console.error(e);
       alert("Failed to update status");

@@ -9,6 +9,7 @@ import { cn } from '../lib/utils';
 import { useAuth } from './AuthProvider';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { VoiceAssistant } from './VoiceAssistant';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -16,14 +17,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
   
   const [points, setPoints] = useState(0);
   const [reportsCount, setReportsCount] = useState(0);
+  const [verificationsCount, setVerificationsCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     
     const q = query(collection(db, 'reports'), where('user_id', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
-      setReportsCount(snap.docs.length);
-      setPoints(snap.docs.length * 10);
+      let rCount = 0;
+      let vCount = 0;
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.type === 'confirm' || data.type === 'already_fixed') {
+          vCount++;
+        } else {
+          rCount++;
+        }
+      });
+      setReportsCount(rCount);
+      setVerificationsCount(vCount);
+      setPoints((rCount * 10) + (vCount * 5));
     });
     
     return () => unsub();
@@ -109,7 +122,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="text-slate-500">Reports</div>
               </div>
               <div>
-                <div className="text-white font-bold text-sm">{Math.floor(reportsCount * 1.5)}</div>
+                <div className="text-white font-bold text-sm">{verificationsCount}</div>
                 <div className="text-slate-500">Verifications</div>
               </div>
               <div>
@@ -152,6 +165,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+      
+      <VoiceAssistant />
     </div>
   );
 }
