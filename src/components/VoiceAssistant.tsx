@@ -153,23 +153,106 @@ export function VoiceAssistant() {
   }, []);
 
   return (
-    <button
-      onClick={toggleAssistant}
-      disabled={isConnecting}
-      className={cn(
-        "fixed bottom-6 right-6 p-4 rounded-full shadow-xl transition-all duration-300 flex items-center justify-center",
-        isActive ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-indigo-600 hover:bg-indigo-700",
-        isConnecting && "opacity-80"
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes soundWave {
+          0%, 100% { transform: scaleY(0.2); }
+          50% { transform: scaleY(1); }
+        }
+        .waveform-bar {
+          animation: soundWave 1.2s ease-in-out infinite;
+          transform-origin: center;
+        }
+      `}} />
+
+      {/* Floating Assistant Control Panel */}
+      {(isActive || isConnecting) && (
+        <div className="fixed bottom-24 right-6 w-80 bg-[#1C1D26] border border-slate-800 rounded-2xl p-5 shadow-2xl z-50 flex flex-col space-y-4 transition-all duration-300">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center space-x-2">
+              <span className="relative flex h-2 w-2">
+                <span className={cn(
+                  "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                  isConnecting ? "bg-amber-400" : "bg-emerald-400"
+                )}></span>
+                <span className={cn(
+                  "relative inline-flex rounded-full h-2 w-2",
+                  isConnecting ? "bg-amber-500" : "bg-emerald-500"
+                )}></span>
+              </span>
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                {isConnecting ? "Connecting to AI..." : "Civic AI Active"}
+              </span>
+            </div>
+            <button 
+              onClick={stopLiveSession} 
+              className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-2 py-1 rounded transition-colors"
+            >
+              Disconnect
+            </button>
+          </div>
+
+          {/* Waveform Visualization */}
+          <div className="flex flex-col items-center justify-center py-4 bg-[#12131A] rounded-xl border border-slate-800/60 relative overflow-hidden">
+            <div className="flex items-center justify-center space-x-1.5 h-12 w-full px-8">
+              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.1s' }} />
+              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.35s' }} />
+              <div className="w-1 bg-indigo-400 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.2s' }} />
+              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.5s' }} />
+              <div className="w-1 bg-indigo-400 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.15s' }} />
+              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.4s' }} />
+              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.25s' }} />
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2 font-medium">
+              {isConnecting ? "Establishing voice stream..." : "Try speaking to report or query issues"}
+            </p>
+          </div>
+
+          {/* Helper Suggestions */}
+          <div className="space-y-2">
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Suggested Queries</p>
+            <div className="flex flex-col gap-1.5">
+              {[
+                "\"Report a new garbage issue nearby\"",
+                "\"What is my current level and XP?\"",
+                "\"Show me the community leaderboard\"",
+              ].map((phrase, i) => (
+                <div 
+                  key={i} 
+                  className="text-xs text-slate-300 bg-[#12131A] hover:bg-slate-800 border border-slate-800/50 p-2 rounded-lg cursor-pointer transition-colors leading-tight font-mono text-center"
+                  onClick={() => {
+                    // Let user know they can speak it
+                    console.log("User suggested to speak:", phrase);
+                  }}
+                >
+                  {phrase}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
-      title="Talk to AI Civic Assistant"
-    >
-      {isConnecting ? (
-        <Loader2 className="w-6 h-6 text-white animate-spin" />
-      ) : isActive ? (
-        <MicOff className="w-6 h-6 text-white" />
-      ) : (
-        <Mic className="w-6 h-6 text-white" />
-      )}
-    </button>
+
+      {/* Floating Toggle Button */}
+      <button
+        onClick={toggleAssistant}
+        disabled={isConnecting}
+        className={cn(
+          "fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all duration-300 flex items-center justify-center z-50",
+          isActive ? "bg-red-500 hover:bg-red-600 animate-pulse border border-red-400/40" : "bg-indigo-600 hover:bg-indigo-700 border border-indigo-500/40",
+          isConnecting && "opacity-80"
+        )}
+        title="Talk to AI Civic Assistant"
+      >
+        {isConnecting ? (
+          <Loader2 className="w-6 h-6 text-white animate-spin" />
+        ) : isActive ? (
+          <MicOff className="w-6 h-6 text-white" />
+        ) : (
+          <Mic className="w-6 h-6 text-white" />
+        )}
+      </button>
+    </>
   );
 }

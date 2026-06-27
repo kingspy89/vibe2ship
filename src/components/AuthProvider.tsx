@@ -10,6 +10,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
+  mockLogin?: (role: 'citizen' | 'admin', email?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -54,12 +55,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, pass);
   };
 
+  const mockLogin = (role: 'citizen' | 'admin', email?: string) => {
+    const mockUser = {
+      uid: role === 'admin' ? `mock_admin_${email ? email.replace(/[^a-zA-Z0-9]/g, '_') : 'default'}` : 'mock_citizen_uid',
+      email: email || (role === 'admin' ? 'admin@city.gov' : 'citizen@civicpulse.org'),
+      displayName: role === 'admin' ? (email ? email.split('@')[0].split('.').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Admin Officer') : 'Malav',
+      photoURL: role === 'admin' ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${email || 'Admin'}` : 'https://api.dicebear.com/7.x/avataaars/svg?seed=Malav',
+    } as any;
+    setUser(mockUser);
+    setIsAdmin(role === 'admin');
+    setLoading(false);
+  };
+
   const logout = async () => {
-    await signOut(auth);
+    if (user?.uid?.startsWith('mock_')) {
+      setUser(null);
+      setIsAdmin(false);
+    } else {
+      await signOut(auth);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, loginWithGoogle, loginWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, loginWithGoogle, loginWithEmail, logout, mockLogin }}>
       {children}
     </AuthContext.Provider>
   );

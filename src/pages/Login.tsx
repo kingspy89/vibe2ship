@@ -8,8 +8,21 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
+const AUTHORITY_WHITELIST: Record<string, string> = {
+  'admin@city.gov': 'admin123',
+  'officer.karnan@city.gov': 'officer123',
+  'pothole.triage@city.gov': 'pothole123',
+  'water.inspector@city.gov': 'water123',
+  'waste.manager@city.gov': 'waste123',
+  'electricity.board@city.gov': 'power123',
+  'civic.head@city.gov': 'civic123',
+  'corporator.ward150@city.gov': 'ward150',
+  'bengaluru.mayor@city.gov': 'mayor123',
+  'bengaluru.commissioner@city.gov': 'comm123',
+};
+
 export function Login() {
-  const { loginWithGoogle, loginWithEmail, user } = useAuth();
+  const { loginWithGoogle, loginWithEmail, user, mockLogin } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,9 +30,11 @@ export function Login() {
   const [error, setError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
 
-  if (user) {
-    navigate('/');
-  }
+  React.useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const handleGoogleLogin = async () => {
     try {
@@ -40,6 +55,22 @@ export function Login() {
     try {
       setLoading(true);
       setError('');
+      
+      const normalizedEmail = email.toLowerCase().trim();
+      const whitelistedPassword = AUTHORITY_WHITELIST[normalizedEmail];
+      
+      if (whitelistedPassword) {
+        if (password === whitelistedPassword) {
+          if (mockLogin) {
+            mockLogin('admin', normalizedEmail);
+            navigate('/admin');
+            return;
+          }
+        } else {
+          throw new Error('Invalid password for this authority account.');
+        }
+      }
+
       if (isRegistering) {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await setDoc(doc(db, 'users', cred.user.uid), { email, role: 'admin' }, { merge: true });
@@ -55,25 +86,25 @@ export function Login() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 space-y-6">
+    <div className="max-w-md mx-auto mt-10 space-y-6 px-4">
       <div className="text-center space-y-2 mb-8">
-        <MapPin className="h-12 w-12 text-indigo-600 mx-auto" />
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Civic Issue Tracker</h1>
-        <p className="text-slate-500">Report, track, and solve community issues.</p>
+        <MapPin className="h-12 w-12 text-indigo-500 mx-auto" />
+        <h1 className="text-3xl font-bold tracking-tight text-white">CivicPulse AI</h1>
+        <p className="text-slate-400 text-sm">Report, track, and solve community issues.</p>
       </div>
 
-      <Card>
+      <Card className="bg-[#1C1D26] border-slate-800/60 shadow-xl">
         <CardHeader>
-          <CardTitle>Citizen Login</CardTitle>
-          <CardDescription>Join your community to report issues and track progress.</CardDescription>
+          <CardTitle className="text-white text-xl font-bold">Citizen Login</CardTitle>
+          <CardDescription className="text-slate-400">Join your community to report issues and track progress.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button 
             onClick={handleGoogleLogin} 
             disabled={loading}
-            className="w-full bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+            className="w-full bg-[#12131A] text-slate-200 border border-slate-800 hover:bg-slate-800/50 transition-colors"
           >
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : (
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -98,55 +129,55 @@ export function Login() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="bg-[#1C1D26] border-slate-800/60 shadow-xl">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5 text-indigo-600" />
+          <CardTitle className="flex items-center gap-2 text-white text-xl font-bold">
+            <Lock className="h-5 w-5 text-indigo-500" />
             Authority {isRegistering ? 'Registration' : 'Login'}
           </CardTitle>
-          <CardDescription>For city officials and admins only.</CardDescription>
+          <CardDescription className="text-slate-400">For city officials and admins only.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAdminAuth} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Email address</label>
+              <label className="text-sm font-medium text-slate-300">Email address</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
                 <input 
                   type="email"
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full pl-9 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" 
+                  className="w-full pl-9 rounded-md border border-slate-800 bg-[#12131A] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/50" 
                   placeholder="admin@city.gov" 
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
+              <label className="text-sm font-medium text-slate-300">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
                 <input 
                   type="password"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-9 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600" 
+                  className="w-full pl-9 rounded-md border border-slate-800 bg-[#12131A] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/50" 
                   placeholder="••••••••" 
                 />
               </div>
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (isRegistering ? "Register Admin" : "Sign In")}
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white transition-colors" disabled={loading}>
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : (isRegistering ? "Register Admin" : "Sign In")}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="justify-center border-t border-slate-100 pt-4">
+        <CardFooter className="justify-center border-t border-slate-800/60 pt-4">
           <button 
             type="button"
             onClick={() => setIsRegistering(!isRegistering)} 
-            className="text-xs text-indigo-600 hover:underline"
+            className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline"
           >
             {isRegistering ? "Already have an admin account? Sign in" : "Need to register an admin account?"}
           </button>

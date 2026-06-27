@@ -22,25 +22,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return;
     
-    const q = query(collection(db, 'reports'), where('user_id', '==', user.uid));
-    const unsub = onSnapshot(q, (snap) => {
-      let rCount = 0;
-      let vCount = 0;
-      snap.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.type === 'confirm' || data.type === 'already_fixed') {
-          vCount++;
-        } else {
-          rCount++;
-        }
-      });
-      setReportsCount(rCount);
-      setVerificationsCount(vCount);
-      setPoints((rCount * 10) + (vCount * 5));
+    const qReports = query(collection(db, 'reports'), where('user_id', '==', user.uid));
+    const unsubReports = onSnapshot(qReports, (snap) => {
+      setReportsCount(snap.docs.length);
+    });
+
+    const qVerifications = query(collection(db, 'verifications'), where('user_id', '==', user.uid));
+    const unsubVerifications = onSnapshot(qVerifications, (snap) => {
+      setVerificationsCount(snap.docs.length);
     });
     
-    return () => unsub();
+    return () => {
+      unsubReports();
+      unsubVerifications();
+    };
   }, [user]);
+
+  useEffect(() => {
+    setPoints((reportsCount * 10) + (verificationsCount * 5));
+  }, [reportsCount, verificationsCount]);
 
   const level = Math.floor(points / 100) + 1;
   const currentLevelPoints = points % 100;

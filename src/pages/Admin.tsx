@@ -68,48 +68,51 @@ export function Admin() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-slate-900">Authority Triage Queue</h1>
-        <p className="text-sm text-slate-500">Sorted by AI Priority Score</p>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-100 tracking-tight">Authority Triage Queue</h1>
+          <p className="text-sm text-slate-400 mt-1">Manage and resolve reported community issues</p>
+        </div>
+        <p className="text-xs text-indigo-400 font-semibold px-3 py-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20">Sorted by AI Priority Score</p>
       </div>
 
       <div className="flex flex-col gap-4">
         {issues.map((issue) => (
-          <Card key={issue.issue_id} className="overflow-hidden transition-all hover:shadow-md">
+          <Card key={issue.issue_id} className="bg-[#1C1D26] border-slate-800/50 overflow-hidden transition-all hover:border-slate-700/50 shadow-xl">
             <div className="flex flex-col md:flex-row">
               {/* Left sidebar priority indicator */}
-              <div className={`w-2 ${issue.severity_score >= 4 ? 'bg-red-500' : issue.severity_score === 3 ? 'bg-amber-500' : 'bg-blue-500'}`} />
+              <div className={`w-2 shrink-0 ${issue.severity_score >= 4 ? 'bg-red-500' : issue.severity_score === 3 ? 'bg-amber-500' : 'bg-blue-500'}`} />
               
               <CardContent className="flex-1 p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
                 
                 {/* Core Info */}
-                <div className="md:col-span-5 space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-200 shadow-none border-none">
-                      {issue.category.toUpperCase()}
+                <div className="md:col-span-5 space-y-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-600/30 uppercase text-[10px] font-bold">
+                      {issue.category.replace('_', ' ')}
                     </Badge>
-                    <Badge variant="outline" className={issue.status === 'Resolved' ? 'text-emerald-600 border-emerald-200' : ''}>
+                    <Badge variant="outline" className={`text-[10px] font-bold ${issue.status === 'Resolved' ? 'text-emerald-400 border-emerald-950/60 bg-emerald-950/20' : 'text-slate-400 border-slate-800'}`}>
                       {issue.status}
                     </Badge>
                   </div>
-                  <Link to={`/issue/${issue.issue_id}`} className="hover:underline">
-                    <h3 className="text-lg font-semibold text-slate-900">{issue.auto_title}</h3>
+                  <Link to={`/issue/${issue.issue_id}`} className="block group">
+                    <h3 className="text-lg font-semibold text-white group-hover:text-indigo-400 transition-colors">{issue.auto_title}</h3>
                   </Link>
-                  <p className="text-sm text-slate-600 line-clamp-2">{issue.auto_description}</p>
+                  <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed">{issue.auto_description}</p>
                 </div>
 
                 {/* AI Triage Data */}
-                <div className="md:col-span-4 space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-slate-700">Severity:</span>
-                    <span className="font-bold">{issue.severity_score}/5</span>
+                <div className="md:col-span-4 space-y-2 bg-[#12131A] p-4 rounded-lg border border-slate-800/60">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-semibold text-slate-400">Severity:</span>
+                    <span className="font-bold text-red-400">{issue.severity_score}/5</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-slate-700">Reports Merged:</span>
-                    <span className="font-bold">{issue.report_count}</span>
+                  <div className="flex justify-between text-xs">
+                    <span className="font-semibold text-slate-400">Reports Merged:</span>
+                    <span className="font-bold text-white">{issue.report_count}</span>
                   </div>
-                  <p className="text-xs text-slate-500 italic border-t border-slate-200 pt-2 mt-2">
+                  <p className="text-[11px] text-slate-500 italic border-t border-slate-800/60 pt-2 mt-2 leading-normal">
                     "{issue.severity_justification}"
                   </p>
                 </div>
@@ -117,17 +120,17 @@ export function Admin() {
                 {/* Actions */}
                 <div className="md:col-span-3 flex flex-col justify-center space-y-2">
                   {issue.status !== 'Acknowledged' && issue.status !== 'In Progress' && issue.status !== 'Resolved' && (
-                    <Button onClick={() => handleStatusUpdate(issue.issue_id, 'Acknowledged')} size="sm" variant="outline" className="w-full">
+                    <Button onClick={() => handleStatusUpdate(issue.issue_id, 'Acknowledged')} size="sm" variant="outline" className="w-full border-slate-800 text-slate-300 hover:bg-slate-800/50 hover:text-white">
                       Acknowledge
                     </Button>
                   )}
                   {issue.status !== 'In Progress' && issue.status !== 'Resolved' && (
-                    <Button onClick={() => handleStatusUpdate(issue.issue_id, 'In Progress')} size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+                    <Button onClick={() => handleStatusUpdate(issue.issue_id, 'In Progress')} size="sm" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
                       Mark In Progress
                     </Button>
                   )}
                   {issue.status !== 'Resolved' && (
-                    <Button onClick={() => handleStatusUpdate(issue.issue_id, 'Resolved')} size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                    <Button onClick={() => handleStatusUpdate(issue.issue_id, 'Resolved')} size="sm" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
                       Resolve Issue
                     </Button>
                   )}
@@ -138,7 +141,7 @@ export function Admin() {
           </Card>
         ))}
         {issues.length === 0 && (
-          <div className="text-center p-12 text-slate-500 border border-dashed rounded-lg">
+          <div className="text-center p-12 text-slate-500 border border-slate-800 border-dashed rounded-lg bg-[#1C1D26]/50">
             No issues reported yet.
           </div>
         )}

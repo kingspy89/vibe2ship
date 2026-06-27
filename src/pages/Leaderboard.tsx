@@ -10,36 +10,58 @@ export function Leaderboard() {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Basic implementation: fetch reports and group by user_id
-    const unsubReports = onSnapshot(query(collection(db, 'reports')), (reportsSnap) => {
+    let reportsData: any[] = [];
+    let verificationsData: any[] = [];
+    let usersMap: Record<string, any> = {};
+
+    const updateLeaderboard = () => {
       const userPoints: Record<string, number> = {};
-      reportsSnap.forEach(doc => {
-        const data = doc.data();
-        const uid = data.user_id;
+      reportsData.forEach(r => {
+        const uid = r.user_id;
         if (uid) {
           userPoints[uid] = (userPoints[uid] || 0) + 10;
         }
       });
-
-      // Also get users to map displayNames
-      const unsubUsers = onSnapshot(query(collection(db, 'users')), (usersSnap) => {
-        const userMap: Record<string, any> = {};
-        usersSnap.forEach(doc => {
-          userMap[doc.id] = doc.data();
-        });
-
-        const leaderboardData = Object.keys(userPoints).map(uid => ({
-          id: uid,
-          name: userMap[uid]?.displayName || userMap[uid]?.email?.split('@')[0] || (uid === 'anonymous' ? 'Anonymous Citizen' : 'Civic Hero'),
-          points: userPoints[uid],
-        })).sort((a, b) => b.points - a.points);
-        
-        setUsers(leaderboardData);
+      verificationsData.forEach(v => {
+        const uid = v.user_id;
+        if (uid) {
+          userPoints[uid] = (userPoints[uid] || 0) + 5;
+        }
       });
-      return () => unsubUsers();
+
+      const leaderboardData = Object.keys(userPoints).map(uid => ({
+        id: uid,
+        name: usersMap[uid]?.displayName || usersMap[uid]?.email?.split('@')[0] || (uid === 'anonymous' ? 'Anonymous Citizen' : 'Civic Hero'),
+        points: userPoints[uid],
+      })).sort((a, b) => b.points - a.points);
+      
+      setUsers(leaderboardData);
+    };
+
+    const unsubReports = onSnapshot(collection(db, 'reports'), (snap) => {
+      reportsData = snap.docs.map(d => d.data());
+      updateLeaderboard();
     });
 
-    return () => unsubReports();
+    const unsubVerifications = onSnapshot(collection(db, 'verifications'), (snap) => {
+      verificationsData = snap.docs.map(d => d.data());
+      updateLeaderboard();
+    });
+
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+      const uMap: Record<string, any> = {};
+      snap.forEach(doc => {
+        uMap[doc.id] = doc.data();
+      });
+      usersMap = uMap;
+      updateLeaderboard();
+    });
+
+    return () => {
+      unsubReports();
+      unsubVerifications();
+      unsubUsers();
+    };
   }, []);
 
   return (

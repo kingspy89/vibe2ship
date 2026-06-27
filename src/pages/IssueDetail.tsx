@@ -8,9 +8,11 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertTriangle, ThumbsUp, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../components/AuthProvider';
 
 export function IssueDetail() {
   const { id } = useParams<{id: string}>();
+  const { user } = useAuth();
   const [issue, setIssue] = useState<Issue | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
 
@@ -43,7 +45,7 @@ export function IssueDetail() {
       // Add verification
       await addDoc(collection(db, 'verifications'), {
         issue_id: id,
-        user_id: 'citizen_demo_user',
+        user_id: user?.uid || 'anonymous',
         type,
         created_at: Date.now()
       });
@@ -72,30 +74,30 @@ export function IssueDetail() {
       
       {/* Left Column: Photos & Details */}
       <div className="md:col-span-2 space-y-6">
-        <Card>
+        <Card className="bg-[#1C1D26] border-slate-800/50">
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle className="text-2xl">{issue.auto_title}</CardTitle>
+                <CardTitle className="text-2xl text-white font-bold">{issue.auto_title}</CardTitle>
                 <div className="flex items-center space-x-2 mt-2">
-                  <Badge variant="outline" className="capitalize">{issue.category.replace('_', ' ')}</Badge>
-                  <span className="text-sm text-slate-500">
+                  <Badge variant="outline" className="capitalize border-slate-700 text-slate-300">{issue.category.replace('_', ' ')}</Badge>
+                  <span className="text-sm text-slate-500 font-normal">
                     Reported {formatDistanceToNow(issue.created_at)} ago
                   </span>
                 </div>
               </div>
-              <Badge variant={issue.status === 'Resolved' ? 'default' : 'secondary'} className="text-sm">
+              <Badge className={`text-sm ${issue.status === 'Resolved' ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'}`}>
                 {issue.status}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <p className="text-slate-700 leading-relaxed">{issue.auto_description}</p>
+            <p className="text-slate-300 leading-relaxed text-sm">{issue.auto_description}</p>
             
             {/* Gallery */}
             <div className="grid grid-cols-2 gap-4">
               {reports.map((report) => (
-                <div key={report.report_id} className="relative aspect-video rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
+                <div key={report.report_id} className="relative aspect-video rounded-lg overflow-hidden bg-slate-900 border border-slate-800">
                   <img src={report.photo_url || "https://placehold.co/600x400?text=No+Photo"} alt="Report" className="w-full h-full object-cover" />
                   {report.raw_caption && (
                     <div className="absolute bottom-0 w-full bg-black/60 p-2 text-xs text-white backdrop-blur-sm">
@@ -109,24 +111,24 @@ export function IssueDetail() {
         </Card>
 
         {/* Verification Actions */}
-        <Card className="bg-indigo-50 border-indigo-100">
+        <Card className="bg-indigo-950/20 border-indigo-900/40">
           <CardHeader>
-            <CardTitle className="text-lg text-indigo-900">Community Verification</CardTitle>
+            <CardTitle className="text-lg text-indigo-300">Community Verification</CardTitle>
           </CardHeader>
           <CardContent>
             {issue.status !== 'Resolved' ? (
               <div className="flex flex-wrap gap-3">
-                <Button onClick={() => handleVerify('confirm')} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                <Button onClick={() => handleVerify('confirm')} className="bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
                   <ThumbsUp className="h-4 w-4 mr-2" /> Confirm it's still there
                 </Button>
-                <Button onClick={() => handleVerify('already_fixed')} variant="outline" className="text-emerald-700 hover:text-emerald-800 border-emerald-200 hover:bg-emerald-50">
+                <Button onClick={() => handleVerify('already_fixed')} variant="outline" className="text-emerald-400 border-emerald-900/60 hover:bg-emerald-950/30 hover:text-emerald-300">
                   <CheckCircle2 className="h-4 w-4 mr-2" /> Already Fixed
                 </Button>
               </div>
             ) : (
               <div className="flex flex-wrap gap-3 items-center">
-                <p className="text-sm text-slate-700 w-full mb-2">This issue is marked as resolved. Is it still a problem?</p>
-                <Button onClick={() => handleVerify('confirm')} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
+                <p className="text-sm text-slate-400 w-full mb-2">This issue is marked as resolved. Is it still a problem?</p>
+                <Button onClick={() => handleVerify('confirm')} variant="outline" className="text-red-400 border-red-900/60 hover:bg-red-950/30 hover:text-red-300">
                   <AlertTriangle className="h-4 w-4 mr-2" /> Actually, it's still there
                 </Button>
               </div>
@@ -137,27 +139,27 @@ export function IssueDetail() {
 
       {/* Right Column: AI Insights & Status */}
       <div className="space-y-6">
-        <Card className="border-l-4 border-l-red-500">
+        <Card className="border-l-4 border-l-red-500 bg-[#1C1D26] border-slate-800/50">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center text-red-700 text-lg">
+            <CardTitle className="flex items-center text-red-400 text-lg">
               <AlertTriangle className="h-5 w-5 mr-2" /> 
               Severity {issue.severity_score}/5
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-700 font-medium">AI Justification:</p>
-            <p className="text-sm text-slate-600 mt-1">{issue.severity_justification}</p>
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <div className="text-3xl font-bold text-slate-900">{issue.report_count}</div>
+            <p className="text-sm text-slate-400 font-medium">AI Justification:</p>
+            <p className="text-sm text-slate-300 mt-1">{issue.severity_justification}</p>
+            <div className="mt-4 pt-4 border-t border-slate-800/50">
+              <div className="text-3xl font-bold text-white">{issue.report_count}</div>
               <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">Duplicate Reports Merged</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-[#1C1D26] border-slate-800/50">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center">
-              <ShieldCheck className="h-5 w-5 mr-2 text-slate-500" />
+            <CardTitle className="text-lg flex items-center text-slate-200">
+              <ShieldCheck className="h-5 w-5 mr-2 text-indigo-400" />
               Resolution Timeline
             </CardTitle>
           </CardHeader>
@@ -171,8 +173,8 @@ export function IssueDetail() {
                 
                 return (
                   <div key={step} className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${isPast ? 'bg-indigo-600' : 'bg-slate-200'}`} />
-                    <span className={`text-sm ${isCurrent ? 'font-bold text-indigo-700' : isPast ? 'text-slate-700' : 'text-slate-400'}`}>
+                    <div className={`w-3 h-3 rounded-full ${isPast ? 'bg-indigo-500' : 'bg-slate-800'}`} />
+                    <span className={`text-sm ${isCurrent ? 'font-bold text-indigo-400' : isPast ? 'text-slate-300' : 'text-slate-500'}`}>
                       {step}
                     </span>
                   </div>

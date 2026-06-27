@@ -140,17 +140,17 @@ export function Report() {
 
   return (
     <div className="max-w-xl mx-auto">
-      <Card>
+      <Card className="bg-[#1C1D26] border-slate-800/60 shadow-xl">
         <CardHeader>
-          <CardTitle>Report an Issue</CardTitle>
-          <CardDescription>Take a photo of the problem. Our AI will do the rest.</CardDescription>
+          <CardTitle className="text-white text-xl font-bold">Report an Issue</CardTitle>
+          <CardDescription className="text-slate-400">Take a photo of the problem. Our AI will do the rest.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* Photo Upload */}
             <div 
-              className="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
+              className="border-2 border-dashed border-slate-800 rounded-lg p-6 flex flex-col items-center justify-center bg-[#12131A] cursor-pointer hover:bg-slate-800/30 transition-colors"
               onClick={() => fileInputRef.current?.click()}
             >
               <input 
@@ -165,15 +165,16 @@ export function Report() {
                 <img src={preview} alt="Preview" className="max-h-64 rounded-md object-contain" />
               ) : (
                 <div className="text-center space-y-2">
-                  <Camera className="h-10 w-10 text-slate-400 mx-auto" />
-                  <p className="text-sm font-medium text-slate-700">Tap to take photo or upload</p>
+                  <Camera className="h-10 w-10 text-slate-500 mx-auto" />
+                  <p className="text-sm font-medium text-slate-300">Tap to take photo or upload</p>
+                  <p className="text-xs text-slate-500">Supports JPEG, PNG up to 10MB</p>
                 </div>
               )}
             </div>
 
             {/* Location */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Location</label>
+              <label className="text-sm font-medium text-slate-300">Location</label>
               
               <div className="flex gap-2 mb-2">
                 <input
@@ -182,7 +183,7 @@ export function Report() {
                   placeholder="Enter location manually..."
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  className="w-full rounded-md border border-slate-800 bg-[#12131A] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/50"
                 />
               </div>
 
@@ -192,9 +193,9 @@ export function Report() {
                   variant={location ? "default" : "outline"} 
                   onClick={getLocation}
                   disabled={locating}
-                  className="w-full flex justify-start"
+                  className="w-full flex justify-start border-slate-800 text-slate-300 hover:bg-slate-800/40"
                 >
-                  <MapPin className="h-4 w-4 mr-2" />
+                  <MapPin className="h-4 w-4 mr-2 text-indigo-400" />
                   {locating ? "Locating..." : location ? `Captured: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : "Get GPS Location"}
                 </Button>
               </div>
@@ -202,10 +203,10 @@ export function Report() {
 
             {/* Optional Caption */}
             <div className="space-y-2">
-              <label htmlFor="caption" className="text-sm font-medium text-slate-700">Additional details (Optional)</label>
+              <label htmlFor="caption" className="text-sm font-medium text-slate-300">Additional details (Optional)</label>
               <textarea 
                 id="caption"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                className="w-full rounded-md border border-slate-800 bg-[#12131A] px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/50"
                 placeholder="e.g., The leak is getting worse..."
                 rows={3}
                 value={caption}
@@ -215,12 +216,12 @@ export function Report() {
 
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white transition-colors" 
               disabled={!preview || !location || isSubmitting}
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />
                   Analyzing AI Pipeline...
                 </>
               ) : (

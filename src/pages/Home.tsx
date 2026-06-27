@@ -18,6 +18,8 @@ export function Home() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const navigate = useNavigate();
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [severityFilter, setSeverityFilter] = useState<string>('all');
 
   useEffect(() => {
     const q = query(collection(db, 'issues'), orderBy('priority_score', 'desc'));
@@ -38,39 +40,78 @@ export function Home() {
       });
     });
 
-    const unsubReports = onSnapshot(query(collection(db, 'reports')), (reportsSnap) => {
+    let reportsData: any[] = [];
+    let verificationsData: any[] = [];
+    let usersMap: Record<string, any> = {};
+
+    const updateLeaderboard = () => {
       const userPoints: Record<string, number> = {};
-      reportsSnap.forEach(doc => {
-        const data = doc.data();
-        const uid = data.user_id;
+      reportsData.forEach(r => {
+        const uid = r.user_id;
         if (uid) {
           userPoints[uid] = (userPoints[uid] || 0) + 10;
         }
       });
-      const unsubUsers = onSnapshot(query(collection(db, 'users')), (usersSnap) => {
-        const userMap: Record<string, any> = {};
-        usersSnap.forEach(doc => {
-          userMap[doc.id] = doc.data();
-        });
-        const leaderboardData = Object.keys(userPoints).map(uid => ({
-          id: uid,
-          name: userMap[uid]?.displayName || userMap[uid]?.email?.split('@')[0] || (uid === 'anonymous' ? 'Anonymous Citizen' : 'Civic Hero'),
-          points: userPoints[uid],
-          col: uid === auth.currentUser?.uid ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400',
-          isCurrentUser: uid === auth.currentUser?.uid
-        })).sort((a, b) => b.points - a.points).slice(0, 5);
-        setLeaderboard(leaderboardData);
+      verificationsData.forEach(v => {
+        const uid = v.user_id;
+        if (uid) {
+          userPoints[uid] = (userPoints[uid] || 0) + 5;
+        }
       });
-      return () => unsubUsers();
+
+      const leaderboardData = Object.keys(userPoints).map(uid => ({
+        id: uid,
+        name: usersMap[uid]?.displayName || usersMap[uid]?.email?.split('@')[0] || (uid === 'anonymous' ? 'Anonymous Citizen' : 'Civic Hero'),
+        points: userPoints[uid],
+        col: uid === auth.currentUser?.uid ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400',
+        isCurrentUser: uid === auth.currentUser?.uid
+      })).sort((a, b) => b.points - a.points).slice(0, 5);
+      
+      setLeaderboard(leaderboardData);
+    };
+
+    const unsubReports = onSnapshot(collection(db, 'reports'), (snap) => {
+      reportsData = snap.docs.map(d => d.data());
+      updateLeaderboard();
+    });
+
+    const unsubVerifications = onSnapshot(collection(db, 'verifications'), (snap) => {
+      verificationsData = snap.docs.map(d => d.data());
+      updateLeaderboard();
+    });
+
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+      const uMap: Record<string, any> = {};
+      snap.forEach(doc => {
+        uMap[doc.id] = doc.data();
+      });
+      usersMap = uMap;
+      updateLeaderboard();
     });
 
     return () => {
       unsubscribeIssues();
       unsubReports();
+      unsubVerifications();
+      unsubUsers();
     };
   }, []);
 
   const totalIssues = issues.length;
+
+  const filteredIssues = issues.filter(issue => {
+    const matchesCategory = categoryFilter === 'all' || issue.category === categoryFilter;
+    let matchesSeverity = true;
+    if (severityFilter === 'high') {
+      matchesSeverity = issue.severity_score >= 4;
+    } else if (severityFilter === 'medium') {
+      matchesSeverity = issue.severity_score === 3;
+    } else if (severityFilter === 'low') {
+      matchesSeverity = issue.severity_score <= 2;
+    }
+    return matchesCategory && matchesSeverity;
+  });
+
   const categoryCounts = issues.reduce((acc, curr) => {
     const cat = curr.category.replace('_', ' ');
     acc[cat] = (acc[cat] || 0) + 1;
@@ -209,15 +250,40 @@ export function Home() {
         <div className="col-span-8 space-y-6">
           {/* Map Container */}
           <Card className="bg-[#1C1D26] border-slate-800/50 overflow-hidden flex flex-col h-[500px]">
-            <div className="px-4 py-3 border-b border-slate-800/50 flex justify-between items-center bg-[#1C1D26] z-10">
+            <div className="px-4 py-3 border-b border-slate-800/50 flex flex-wrap justify-between items-center bg-[#1C1D26] z-10 gap-2">
               <div className="flex items-center space-x-2">
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 <span className="font-semibold text-sm text-slate-200">Live Issue Map</span>
                 <span className="text-xs text-slate-500 px-2 py-0.5 rounded bg-slate-800/50">Real-time</span>
               </div>
-              <Button variant="outline" size="sm" className="h-8 border-slate-700 text-slate-300">
-                <Filter className="h-3 w-3 mr-2" /> Filters
-              </Button>
+              
+              <div className="flex items-center space-x-2">
+                {/* Category Filter */}
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="bg-[#12131A] border border-slate-800 text-xs text-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 cursor-pointer"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="pothole">Potholes</option>
+                  <option value="streetlight">Streetlights</option>
+                  <option value="garbage">Waste/Garbage</option>
+                  <option value="water_leakage">Water Leakage</option>
+                  <option value="other">Other</option>
+                </select>
+
+                {/* Severity Filter */}
+                <select
+                  value={severityFilter}
+                  onChange={(e) => setSeverityFilter(e.target.value)}
+                  className="bg-[#12131A] border border-slate-800 text-xs text-slate-300 rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 cursor-pointer"
+                >
+                  <option value="all">All Severities</option>
+                  <option value="high">High (4-5)</option>
+                  <option value="medium">Medium (3)</option>
+                  <option value="low">Low (1-2)</option>
+                </select>
+              </div>
             </div>
             <div className="flex-1 relative">
               {apiKey ? (
@@ -229,7 +295,7 @@ export function Home() {
                     disableDefaultUI={false}
                     gestureHandling="greedy"
                   >
-                    {issues.map(issue => (
+                    {filteredIssues.map(issue => (
                       <AdvancedMarker 
                         key={issue.issue_id} 
                         position={{ lat: issue.lat, lng: issue.lng }}
@@ -340,7 +406,7 @@ export function Home() {
         {/* Right Column */}
         <div className="col-span-4 space-y-6">
           {/* Issue Intelligence */}
-          {issues.length > 0 && (
+          {filteredIssues.length > 0 && (
           <Card className="bg-[#1C1D26] border-slate-800/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center text-slate-200">
@@ -351,22 +417,22 @@ export function Home() {
               <div className="flex gap-4">
                 <div className="w-1/2 aspect-video rounded-lg overflow-hidden bg-slate-800 relative flex items-center justify-center">
                   <div className="absolute inset-0 border border-red-500/50 m-2 border-dashed rounded flex flex-col justify-center text-center p-2">
-                    <span className="text-[10px] text-slate-400 block line-clamp-4">{issues[0].auto_description}</span>
+                    <span className="text-[10px] text-slate-400 block line-clamp-4">{filteredIssues[0].auto_description}</span>
                   </div>
                 </div>
                 <div className="w-1/2 space-y-3">
                   <div>
                     <div className="text-[10px] text-slate-500 mb-1">Issue Category</div>
-                    <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 font-normal text-xs py-0 capitalize text-center leading-tight h-auto">⚠️ {issues[0].category.replace('_', ' ')}</Badge>
+                    <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 font-normal text-xs py-0 capitalize text-center leading-tight h-auto">⚠️ {filteredIssues[0].category.replace('_', ' ')}</Badge>
                   </div>
                   <div>
                     <div className="flex justify-between text-[10px] text-slate-500 mb-1">
                       <span>Severity Score</span>
-                      <span className="text-red-400 font-bold">{issues[0].severity_score} / 5</span>
+                      <span className="text-red-400 font-bold">{filteredIssues[0].severity_score} / 5</span>
                     </div>
                     <div className="flex space-x-1">
                       {[1,2,3,4,5].map(i => (
-                        <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= issues[0].severity_score ? 'bg-red-500' : 'bg-slate-800'}`}></div>
+                        <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= filteredIssues[0].severity_score ? 'bg-red-500' : 'bg-slate-800'}`}></div>
                       ))}
                     </div>
                   </div>
@@ -383,12 +449,12 @@ export function Home() {
               </div>
               
               <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-3 flex items-start space-x-3">
-                <div className="bg-indigo-500 text-white rounded-full p-1 shrink-0 mt-0.5">
+                <div className="bg-indigo-50 text-white rounded-full p-1 shrink-0 mt-0.5">
                   <CheckCircle2 className="h-3 w-3" />
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-indigo-300">Clustered Intelligence</div>
-                  <p className="text-[10px] text-indigo-400/80 mt-1">Merged with {issues[0].report_count - 1} reports. Primary Issue: {issues[0].auto_title}</p>
+                  <p className="text-[10px] text-indigo-400/80 mt-1">Merged with {filteredIssues[0].report_count - 1} reports. Primary Issue: {filteredIssues[0].auto_title}</p>
                 </div>
                 <Share2 className="h-4 w-4 text-indigo-400/50 shrink-0 ml-auto" />
               </div>
@@ -418,7 +484,7 @@ export function Home() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
-                    {issues.slice(0, 5).map((issue, i) => (
+                    {filteredIssues.slice(0, 5).map((issue, i) => (
                       <tr key={issue.issue_id} className="hover:bg-slate-800/30 transition-colors cursor-pointer" onClick={() => navigate(`/issue/${issue.issue_id}`)}>
                         <td className="py-2.5 text-slate-500">{i + 1}</td>
                         <td className="py-2.5 font-medium text-slate-300 flex items-center space-x-1.5">
