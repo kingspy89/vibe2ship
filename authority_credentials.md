@@ -1,9 +1,10 @@
 # Whitelisted Authority Credentials
 
-Use any of the following whitelisted email and password combinations in the **Authority Login** form to instantly log in as a municipal official on localhost:
+Use any of the following whitelisted email and password combinations in the **Authority Login** form to instantly log in as a citizen or municipal official:
 
-| **Official Role** | **Login Email** | **Password** |
+| **Tester Role** | **Login Email** | **Password** |
 | :--- | :--- | :--- |
+| **Citizen (Malav)** | `citizen@city.gov` | `citizen123` |
 | **Super Administrator** | `admin@city.gov` | `admin123` |
 | **Chief Triage Officer** | `officer.karnan@city.gov` | `officer123` |
 | **Pothole Patrol Manager** | `pothole.triage@city.gov` | `pothole123` |
@@ -18,7 +19,7 @@ Use any of the following whitelisted email and password combinations in the **Au
 ---
 
 ### How to use:
-1. Navigate to the Login screen (`http://localhost:3000/login`).
+1. Navigate to the Login screen.
 2. Scroll to the **Authority Login** card at the bottom.
 3. Enter one of the emails and passwords above.
 4. Click **Sign In**.
