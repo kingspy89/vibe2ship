@@ -16,6 +16,7 @@ export interface Issue {
   created_at: number;
   updated_at: number;
   resolved_photo_url?: string;
+  resolution_notes?: string;
 }
 
 export interface Report {

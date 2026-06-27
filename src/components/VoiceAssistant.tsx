@@ -38,6 +38,7 @@ function base64ToPcm(base64: string): Float32Array {
 export function VoiceAssistant() {
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const inputAudioCtxRef = useRef<AudioContext | null>(null);
   const outputAudioCtxRef = useRef<AudioContext | null>(null);
@@ -45,7 +46,9 @@ export function VoiceAssistant() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const startLiveSession = async () => {
+    setIsActive(true);
     setIsConnecting(true);
+    setMicError(null);
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/live`;
@@ -53,28 +56,32 @@ export function VoiceAssistant() {
       wsRef.current = ws;
 
       ws.onopen = async () => {
-        setIsActive(true);
         setIsConnecting(false);
 
-        const inputAudioCtx = new AudioContext({ sampleRate: 16000 });
-        const outputAudioCtx = new AudioContext({ sampleRate: 24000 });
-        inputAudioCtxRef.current = inputAudioCtx;
-        outputAudioCtxRef.current = outputAudioCtx;
+        try {
+          const inputAudioCtx = new AudioContext({ sampleRate: 16000 });
+          const outputAudioCtx = new AudioContext({ sampleRate: 24000 });
+          inputAudioCtxRef.current = inputAudioCtx;
+          outputAudioCtxRef.current = outputAudioCtx;
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaStreamRef.current = stream;
-        
-        const source = inputAudioCtx.createMediaStreamSource(stream);
-        const processor = inputAudioCtx.createScriptProcessor(4096, 1, 1);
-        source.connect(processor);
-        processor.connect(inputAudioCtx.destination);
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaStreamRef.current = stream;
+          
+          const source = inputAudioCtx.createMediaStreamSource(stream);
+          const processor = inputAudioCtx.createScriptProcessor(4096, 1, 1);
+          source.connect(processor);
+          processor.connect(inputAudioCtx.destination);
 
-        processor.onaudioprocess = (e) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            const base64 = pcmToBase64(e.inputBuffer.getChannelData(0));
-            ws.send(JSON.stringify({ audio: base64 }));
-          }
-        };
+          processor.onaudioprocess = (e) => {
+            if (ws.readyState === WebSocket.OPEN) {
+              const base64 = pcmToBase64(e.inputBuffer.getChannelData(0));
+              ws.send(JSON.stringify({ audio: base64 }));
+            }
+          };
+        } catch (audioErr) {
+          console.warn("Voice assistant started without microphone input:", audioErr);
+          setMicError("Microphone access unavailable or blocked.");
+        }
 
         ws.onmessage = (event) => {
           const msg = JSON.parse(event.data);
@@ -94,11 +101,12 @@ export function VoiceAssistant() {
       ws.onerror = (err) => {
         console.error("Live API WS Error:", err);
         stopLiveSession();
-      }
+      };
 
     } catch (e) {
-      console.error("Failed to start voice assistant", e);
-      stopLiveSession();
+      console.error("Failed to start voice assistant WebSocket", e);
+      setMicError("Could not connect to voice server.");
+      setIsConnecting(false);
     }
   };
 
@@ -128,15 +136,16 @@ export function VoiceAssistant() {
       mediaStreamRef.current = null;
     }
     if (inputAudioCtxRef.current) {
-      inputAudioCtxRef.current.close();
+      inputAudioCtxRef.current.close().catch(() => {});
       inputAudioCtxRef.current = null;
     }
     if (outputAudioCtxRef.current) {
-      outputAudioCtxRef.current.close();
+      outputAudioCtxRef.current.close().catch(() => {});
       outputAudioCtxRef.current = null;
     }
     setIsActive(false);
     setIsConnecting(false);
+    setMicError(null);
     nextStartTimeRef.current = 0;
   };
 
@@ -195,17 +204,26 @@ export function VoiceAssistant() {
 
           {/* Waveform Visualization */}
           <div className="flex flex-col items-center justify-center py-4 bg-[#12131A] rounded-xl border border-slate-800/60 relative overflow-hidden">
-            <div className="flex items-center justify-center space-x-1.5 h-12 w-full px-8">
-              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.1s' }} />
-              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.35s' }} />
-              <div className="w-1 bg-indigo-400 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.2s' }} />
-              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.5s' }} />
-              <div className="w-1 bg-indigo-400 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.15s' }} />
-              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.4s' }} />
-              <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.25s' }} />
-            </div>
+            {micError ? (
+              <div className="text-center px-4 py-2">
+                <p className="text-xs text-amber-500 font-semibold mb-1">⚠️ Audio Input Disabled</p>
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  {micError}
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center space-x-1.5 h-12 w-full px-8">
+                <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.1s' }} />
+                <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.35s' }} />
+                <div className="w-1 bg-indigo-400 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.2s' }} />
+                <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.5s' }} />
+                <div className="w-1 bg-indigo-400 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.15s' }} />
+                <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.4s' }} />
+                <div className="w-1 bg-indigo-500 rounded-full h-8 waveform-bar" style={{ animationDelay: '0.25s' }} />
+              </div>
+            )}
             <p className="text-[11px] text-slate-500 mt-2 font-medium">
-              {isConnecting ? "Establishing voice stream..." : "Try speaking to report or query issues"}
+              {isConnecting ? "Establishing voice stream..." : micError ? "Text-only Assistance Active" : "Try speaking to report or query issues"}
             </p>
           </div>
 
