@@ -22,7 +22,7 @@ Here is a visual overview of the premium CivicPulse AI dark-themed dashboard and
 *   **Gemini Live Audio Assistant:** WebSocket voice assistance using `gemini-3.1-flash-live-preview` to handle reports, status checks, and leaderboard XP queries using conversational audio.
 *   **Orchestrated Multi-Agent Pipeline:** Multi-step AI processing of incoming citizen photos to auto-generate descriptions, cluster duplicate reports, and rate urgency scores.
 *   **Gamified Civic Leadership:** Active Citizen XP system (10 XP per report, 5 XP per verification) tied to a live community leaderboard.
-*   **Official Priority Queue:** Auto-prioritized triage queue for municipality officers showing issues sorted by an AI priority score.
+*   **Official Triage & Solution Workbench:** A split-pane dashboard workspace for municipal officials containing a real-time Priority Queue on the left, and an interactive Solution Workbench on the right with automated AI diagnostics, a category-specific Solution Blueprint checklist, official work logging, and status/crew deployment actions.
 
 ---
 
