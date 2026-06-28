@@ -16,16 +16,36 @@ export function MyIssues() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    const q = query(collection(db, 'issues'), where('user_id', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const issuesData = snapshot.docs.map(doc => ({
-        issue_id: doc.id,
-        ...doc.data()
-      })) as Issue[];
-      setIssues(issuesData.sort((a, b) => b.created_at - a.created_at));
-      setLoading(false);
+
+    let unsubIssues: (() => void) | null = null;
+
+    const qReports = query(collection(db, 'reports'), where('user_id', '==', user.uid));
+    const unsubReports = onSnapshot(qReports, (reportsSnap) => {
+      const userIssueIds = new Set(reportsSnap.docs.map(doc => doc.data().issue_id).filter(Boolean));
+      
+      if (unsubIssues) unsubIssues();
+
+      if (userIssueIds.size === 0) {
+        setIssues([]);
+        setLoading(false);
+        return;
+      }
+
+      const qIssues = query(collection(db, 'issues'));
+      unsubIssues = onSnapshot(qIssues, (issuesSnap) => {
+        const userIssues = issuesSnap.docs
+          .map(doc => ({ issue_id: doc.id, ...doc.data() } as Issue))
+          .filter(issue => userIssueIds.has(issue.issue_id));
+          
+        setIssues(userIssues.sort((a, b) => b.created_at - a.created_at));
+        setLoading(false);
+      });
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubReports();
+      if (unsubIssues) unsubIssues();
+    };
   }, [user]);
 
   return (

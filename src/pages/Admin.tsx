@@ -113,7 +113,18 @@ export function Admin() {
       verificationsSnap.forEach(doc => userIds.add(doc.data().user_id));
 
       for (const userId of Array.from(userIds)) {
-        if (!userId) continue;
+        if (!userId || userId === 'anonymous') continue;
+
+        // Create in-app notification
+        await addDoc(collection(db, 'notifications'), {
+          user_id: userId,
+          title: `Status Update: ${issueTitle}`,
+          message: `The status of the issue has changed to: '${newStatus}'.${notes ? ` Notes: ${notes}` : ''}`,
+          issue_id: id,
+          read: false,
+          created_at: Date.now()
+        });
+
         const userDoc = await getDoc(doc(db, 'users', userId));
         if (userDoc.exists()) {
           const userData = userDoc.data();

@@ -18,6 +18,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [points, setPoints] = useState(0);
   const [reportsCount, setReportsCount] = useState(0);
   const [verificationsCount, setVerificationsCount] = useState(0);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -31,10 +32,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const unsubVerifications = onSnapshot(qVerifications, (snap) => {
       setVerificationsCount(snap.docs.length);
     });
+
+    const qNotif = query(collection(db, 'notifications'), where('user_id', '==', user.uid), where('read', '==', false));
+    const unsubNotif = onSnapshot(qNotif, (snap) => {
+      setUnreadNotificationsCount(snap.docs.length);
+    });
     
     return () => {
       unsubReports();
       unsubVerifications();
+      unsubNotif();
     };
   }, [user]);
 
@@ -56,7 +63,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Impact Dashboard', path: '/impact', icon: BarChart2 },
     { name: 'Analytics', path: '/analytics', icon: LineChart },
     { name: 'Community', path: '/community', icon: Users },
-    { name: 'Notifications', path: '/notifications', icon: Bell, badge: 3 },
+    { name: 'Notifications', path: '/notifications', icon: Bell, badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 

@@ -75,13 +75,13 @@ export function MapView() {
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm relative">
+    <div className="h-[calc(100vh-8rem)] w-full rounded-xl overflow-hidden border border-slate-800/80 shadow-2xl relative">
       <APIProvider apiKey={apiKey}>
         <MapContent issues={issues} navigate={navigate} getPinColor={getPinColor} />
       </APIProvider>
       
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-sm border border-slate-200 text-xs font-medium space-y-2 z-10">
+      <div className="absolute bottom-4 left-4 bg-[#1C1D26]/90 backdrop-blur-sm p-4 rounded-xl shadow-xl border border-slate-800/60 text-xs font-medium space-y-2.5 z-10 text-slate-300">
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-red-500" />
           <span>Critical (4-5)</span>

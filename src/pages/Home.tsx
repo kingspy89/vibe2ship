@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { Issue } from '../types';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../components/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { 
   Search, MapPin, Bell, ClipboardList, Users, Clock, Gauge, 
@@ -12,7 +13,17 @@ import {
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 
+const REGIONS = [
+  { name: 'Karnataka (Bengaluru)', lat: 12.9716, lng: 77.5946, zoom: 12 },
+  { name: 'Delhi NCR (New Delhi)', lat: 28.6139, lng: 77.2090, zoom: 12 },
+  { name: 'Maharashtra (Mumbai)', lat: 19.0760, lng: 72.8777, zoom: 12 },
+  { name: 'Tamil Nadu (Chennai)', lat: 13.0827, lng: 80.2707, zoom: 12 },
+  { name: 'Telangana (Hyderabad)', lat: 17.3850, lng: 78.4867, zoom: 12 },
+  { name: 'West Bengal (Kolkata)', lat: 22.5726, lng: 88.3639, zoom: 12 }
+];
+
 export function Home() {
+  const { user } = useAuth();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [stats, setStats] = useState({ total: 0, resolved: 0 });
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -20,6 +31,24 @@ export function Home() {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [selectedRegion, setSelectedRegion] = useState(REGIONS[0]);
+  const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
+  const [mapCenter, setMapCenter] = useState({ lat: REGIONS[0].lat, lng: REGIONS[0].lng });
+  const [mapZoom, setMapZoom] = useState(REGIONS[0].zoom);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, 'notifications'),
+      where('user_id', '==', user.uid),
+      where('read', '==', false)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setUnreadNotificationsCount(snap.docs.length);
+    });
+    return () => unsub();
+  }, [user]);
 
   useEffect(() => {
     const q = query(collection(db, 'issues'), orderBy('priority_score', 'desc'));
@@ -97,8 +126,6 @@ export function Home() {
     };
   }, []);
 
-  const totalIssues = issues.length;
-
   const filteredIssues = issues.filter(issue => {
     const matchesCategory = categoryFilter === 'all' || issue.category === categoryFilter;
     let matchesSeverity = true;
@@ -109,10 +136,18 @@ export function Home() {
     } else if (severityFilter === 'low') {
       matchesSeverity = issue.severity_score <= 2;
     }
-    return matchesCategory && matchesSeverity;
+    
+    // Proximity boundary filter to match selected region/state: bounding box (approx. 20-30km radius)
+    const latDiff = Math.abs(issue.lat - selectedRegion.lat);
+    const lngDiff = Math.abs(issue.lng - selectedRegion.lng);
+    const matchesRegion = latDiff < 0.25 && lngDiff < 0.25;
+
+    return matchesCategory && matchesSeverity && matchesRegion;
   });
 
-  const categoryCounts = issues.reduce((acc, curr) => {
+  const totalIssues = filteredIssues.length;
+
+  const categoryCounts = filteredIssues.reduce((acc, curr) => {
     const cat = curr.category.replace('_', ' ');
     acc[cat] = (acc[cat] || 0) + 1;
     return acc;
@@ -167,12 +202,37 @@ export function Home() {
     <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Top Bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="bg-[#1C1D26] border border-slate-800 rounded-lg px-4 py-2.5 flex items-center space-x-2 text-sm text-slate-300">
+        <div className="flex items-center space-x-4 relative">
+          <button 
+            onClick={() => setIsRegionDropdownOpen(!isRegionDropdownOpen)}
+            className="bg-[#1C1D26] border border-slate-800 hover:border-slate-700 rounded-lg px-4 py-2.5 flex items-center space-x-2 text-sm text-slate-300 transition-colors"
+          >
             <MapPin className="h-4 w-4 text-indigo-400" />
-            <span>Koramangala, Bengaluru</span>
+            <span>{selectedRegion.name}</span>
             <ChevronDown className="h-4 w-4 text-slate-500" />
-          </div>
+          </button>
+          
+          {isRegionDropdownOpen && (
+            <div className="absolute top-12 left-0 w-64 bg-[#1C1D26] border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-800/50">
+              {REGIONS.map((region) => (
+                <button
+                  key={region.name}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRegion(region);
+                    setMapCenter({ lat: region.lat, lng: region.lng });
+                    setMapZoom(region.zoom);
+                    setIsRegionDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 text-xs font-medium hover:bg-slate-800/40 transition-colors ${
+                    selectedRegion.name === region.name ? 'text-indigo-400 bg-indigo-500/5' : 'text-slate-300'
+                  }`}
+                >
+                  {region.name}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="bg-[#1C1D26] border border-slate-800 rounded-lg px-4 py-2.5 flex items-center space-x-2 w-96">
             <Search className="h-4 w-4 text-slate-500" />
             <input 
@@ -183,15 +243,17 @@ export function Home() {
           </div>
         </div>
         <div className="flex items-center space-x-4">
-          <div className="relative">
+          <Link to="/notifications" className="relative cursor-pointer hover:opacity-85 transition-opacity">
             <Bell className="h-5 w-5 text-slate-400" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-[#12131A]"></span>
-          </div>
+            {unreadNotificationsCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-[#12131A] animate-pulse"></span>
+            )}
+          </Link>
           <div className="flex items-center space-x-2">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Malav" className="h-8 w-8 rounded-full bg-slate-800" />
+            <img src={user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName || user?.email}`} className="h-8 w-8 rounded-full bg-slate-800" />
             <div className="text-xs">
-              <div className="font-bold text-white">Malav</div>
-              <div className="text-slate-500">Level 12 • Verified Local</div>
+              <div className="font-bold text-white">{user?.displayName || user?.email?.split('@')[0] || 'Guest'}</div>
+              <div className="text-slate-500">{user ? 'Verified Local' : 'Guest User'}</div>
             </div>
           </div>
         </div>
@@ -289,8 +351,10 @@ export function Home() {
               {apiKey ? (
                 <APIProvider apiKey={apiKey}>
                   <Map
-                    defaultCenter={{ lat: 12.9352, lng: 77.6245 }}
-                    defaultZoom={13}
+                    center={mapCenter}
+                    zoom={mapZoom}
+                    onCenterChanged={(e) => setMapCenter(e.detail.center)}
+                    onZoomChanged={(e) => setMapZoom(e.detail.zoom)}
                     mapId="civicpulse-dark-map"
                     disableDefaultUI={false}
                     gestureHandling="greedy"

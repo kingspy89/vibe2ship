@@ -55,9 +55,27 @@ async function startServer() {
     try {
       const batch = writeBatch(dbAdmin);
       const clusters = [
+        // Karnataka (Bengaluru)
         { lat: 12.9352, lng: 77.6245, category: 'pothole', title: 'Severe Pothole near Signal', desc: 'Large crater in the middle of the road causing traffic slowdowns.' },
         { lat: 12.9348, lng: 77.6250, category: 'garbage', title: 'Overflowing dump bin', desc: 'Garbage hasn\'t been collected for 3 days, spilling onto sidewalk.' },
         { lat: 12.9360, lng: 77.6240, category: 'streetlight', title: 'Streetlight out', desc: 'Pitch black crossing, very dangerous at night.' },
+
+        // Delhi NCR (New Delhi)
+        { lat: 28.6139, lng: 77.2090, category: 'pothole', title: 'Road damage near Connaught Place', desc: 'Deep pothole on the main avenue causing minor accidents.' },
+        { lat: 28.6150, lng: 77.2100, category: 'water_leakage', title: 'Water Main Leak', desc: 'Water pipeline burst spraying clean water onto the street.' },
+
+        // Maharashtra (Mumbai)
+        { lat: 19.0760, lng: 72.8777, category: 'garbage', title: 'Dumping on Bandra Beach', desc: 'Huge pile of plastics and garbage dumped near the shore.' },
+        { lat: 19.0780, lng: 72.8790, category: 'streetlight', title: 'Corrupt Junction Box', desc: 'Short circuit causing streetlights to flicker repeatedly.' },
+
+        // Tamil Nadu (Chennai)
+        { lat: 13.0827, lng: 80.2707, category: 'water_leakage', title: 'Major Water Leak near Central', desc: 'Leaking pipe node inundating the pedestrian walking lane.' },
+
+        // Telangana (Hyderabad)
+        { lat: 17.3850, lng: 78.4867, category: 'pothole', title: 'Pothole near Charminar Node', desc: 'Damaged road surface causing delays for tourist traffic.' },
+
+        // West Bengal (Kolkata)
+        { lat: 22.5726, lng: 88.3639, category: 'garbage', title: 'Waste Heap in Market Ward', desc: 'Stagnant solid waste heap causing odor issues and blocking lane.' }
       ];
 
       for (let i = 0; i < clusters.length; i++) {
@@ -197,6 +215,18 @@ async function startServer() {
         user_id: userId || 'anonymous',
         photo_url: safePhotoUrl,
         raw_caption: caption || '',
+        created_at: now
+      });
+
+      const notificationRef = doc(collection(dbAdmin, 'notifications'));
+      batch.set(notificationRef, {
+        user_id: userId || 'anonymous',
+        title: agent2Result.decision === 'merge' ? 'Report Merged & Verified' : 'New Issue Registered',
+        message: agent2Result.decision === 'merge'
+          ? `Your report was merged with an existing ticket: '${agent1Result.auto_title}'.`
+          : `Your report for '${agent1Result.auto_title}' was successfully registered.`,
+        issue_id: targetIssueId,
+        read: false,
         created_at: now
       });
 

@@ -50,15 +50,36 @@ export function IssueDetail() {
         created_at: Date.now()
       });
 
+      let newStatus: string | null = null;
       if (type === 'already_fixed' && issue.status !== 'Resolved') {
+        newStatus = 'Resolved';
+      } else if (type === 'confirm' && (issue.status === 'Reported' || issue.status === 'Resolved')) {
+        newStatus = 'Community Verified';
+      }
+
+      if (newStatus) {
         await updateDoc(doc(db, 'issues', id), {
-          status: 'Resolved',
+          status: newStatus,
           updated_at: Date.now()
         });
-      } else if (type === 'confirm' && (issue.status === 'Reported' || issue.status === 'Resolved')) {
-        await updateDoc(doc(db, 'issues', id), {
-          status: 'Community Verified',
-          updated_at: Date.now()
+
+        // Get all reports to notify users who reported this issue
+        const reportsSnap = await getDocs(query(collection(db, 'reports'), where('issue_id', '==', id)));
+        const userIds = new Set<string>();
+        reportsSnap.forEach(docSnap => {
+          const uid = docSnap.data().user_id;
+          if (uid && uid !== 'anonymous') userIds.add(uid);
+        });
+
+        userIds.forEach(async (uid) => {
+          await addDoc(collection(db, 'notifications'), {
+            user_id: uid,
+            title: `Issue ${newStatus}: ${issue.auto_title}`,
+            message: `The status of your reported issue has been updated to '${newStatus}'.`,
+            issue_id: id,
+            read: false,
+            created_at: Date.now()
+          });
         });
       }
     } catch (e) {
