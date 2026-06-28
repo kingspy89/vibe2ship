@@ -1,10 +1,35 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
-import { runAgent1, runAgent2, runAgent3 } from "./server/pipeline";
+import { runAgent1, runAgent2, runAgent3, invalidatePipelineCache } from "./server/pipeline";
 import { dbAdmin } from "./server/firebaseAdmin";
 import { collection, doc, getDoc, writeBatch } from "firebase/firestore";
+const ipCache = new Map<string, { count: number; lastReset: number }>();
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 mins
+const RATE_LIMIT_MAX = 50; // max 50 requests per window
+
+const rateLimiter = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const ip = req.ip || (req.headers['x-forwarded-for'] as string) || 'unknown';
+  const now = Date.now();
+  
+  let record = ipCache.get(ip);
+  if (!record || (now - record.lastReset) > RATE_LIMIT_WINDOW) {
+    record = { count: 1, lastReset: now };
+    ipCache.set(ip, record);
+    return next();
+  }
+  
+  if (record.count >= RATE_LIMIT_MAX) {
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
+  }
+  
+  record.count++;
+  next();
+};
 
 async function startServer() {
   const app = express();
@@ -19,7 +44,7 @@ async function startServer() {
   });
 
   // Seed endpoint for demo
-  app.post("/api/seed", async (req, res) => {
+  app.post("/api/seed", rateLimiter, async (req, res) => {
     try {
       const batch = writeBatch(dbAdmin);
       const clusters = [
@@ -165,6 +190,7 @@ async function startServer() {
       });
 
       await batch.commit();
+      invalidatePipelineCache(agent1Result.category);
       console.log(`[Orchestrator] Pipeline complete! Issue ID: ${targetIssueId}`);
 
       res.json({

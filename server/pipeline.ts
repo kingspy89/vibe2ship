@@ -2,6 +2,19 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { dbAdmin } from "./firebaseAdmin";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
+interface CacheItem {
+  data: any[];
+  timestamp: number;
+}
+
+const activeIssuesCache: Record<string, CacheItem> = {};
+const CACHE_TTL = 30000; // 30 seconds cache TTL
+
+export function invalidatePipelineCache(category: string) {
+  delete activeIssuesCache[category];
+  console.log(`[Cache] Invalidated active issues cache for category: ${category}`);
+}
+
 let aiClient: GoogleGenAI | null = null;
 
 function getAI(): GoogleGenAI {
@@ -119,16 +132,31 @@ export async function runAgent2(
   const newEmbedding = embeddingResponse.embeddings?.[0]?.values;
   if (!newEmbedding) throw new Error("Failed to get embedding");
 
-  // 2. Fetch recent open issues from Firestore
-  // We'll fetch issues of the same category that are not Resolved or Archived.
-  // Due to Firestore limitations, we'll fetch recently updated ones and filter by distance in memory
-  // (Assuming small scale for hackathon)
-  const issuesQuery = query(
-    collection(dbAdmin, 'issues'),
-    where('category', '==', category),
-    where('status', 'in', ['Reported', 'Community Verified', 'Acknowledged', 'In Progress'])
-  );
-  const issuesSnapshot = await getDocs(issuesQuery);
+  // 2. Fetch recent open issues from Firestore or Cache
+  let issuesData: any[] = [];
+  const now = Date.now();
+  const cached = activeIssuesCache[category];
+  
+  if (cached && (now - cached.timestamp) < CACHE_TTL) {
+    console.log(`[Cache] Using cached active issues for category: ${category}`);
+    issuesData = cached.data;
+  } else {
+    console.log(`[Cache] Fetching active issues from Firestore for category: ${category}`);
+    const issuesQuery = query(
+      collection(dbAdmin, 'issues'),
+      where('category', '==', category),
+      where('status', 'in', ['Reported', 'Community Verified', 'Acknowledged', 'In Progress'])
+    );
+    const issuesSnapshot = await getDocs(issuesQuery);
+    issuesData = issuesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    activeIssuesCache[category] = {
+      data: issuesData,
+      timestamp: now
+    };
+  }
 
   const radiusMap: Record<string, number> = {
     'pothole': 60,
@@ -140,8 +168,7 @@ export async function runAgent2(
   const searchRadius = radiusMap[category] || 100;
 
   const candidateIssues = [];
-  for (const doc of issuesSnapshot.docs) {
-    const data = doc.data();
+  for (const data of issuesData) {
     const distance = getDistance(lat, lng, data.lat, data.lng);
     if (distance <= searchRadius) {
       // Need the embedding of this issue. We will store embeddings on the issue doc or recalculate.
@@ -149,7 +176,7 @@ export async function runAgent2(
       if (data.embedding_vector && data.embedding_vector.length > 0) {
         const sim = cosineSimilarity(newEmbedding, data.embedding_vector);
         candidateIssues.push({
-          issue_id: doc.id,
+          issue_id: data.id,
           distance,
           similarity: sim,
           auto_title: data.auto_title,
