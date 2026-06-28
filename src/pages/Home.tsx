@@ -15,10 +15,35 @@ import { Button } from '../components/ui/Button';
 
 const REGIONS = [
   { name: 'Karnataka (Bengaluru)', lat: 12.9716, lng: 77.5946, zoom: 12 },
+  { name: 'Andhra Pradesh (Amaravati)', lat: 16.5062, lng: 80.6480, zoom: 12 },
+  { name: 'Arunachal Pradesh (Itanagar)', lat: 27.1020, lng: 93.6166, zoom: 12 },
+  { name: 'Assam (Dispur)', lat: 26.1445, lng: 91.7362, zoom: 12 },
+  { name: 'Bihar (Patna)', lat: 25.5941, lng: 85.1376, zoom: 12 },
+  { name: 'Chhattisgarh (Raipur)', lat: 21.2514, lng: 81.6296, zoom: 12 },
   { name: 'Delhi NCR (New Delhi)', lat: 28.6139, lng: 77.2090, zoom: 12 },
+  { name: 'Goa (Panaji)', lat: 15.4909, lng: 73.8278, zoom: 12 },
+  { name: 'Gujarat (Ahmedabad)', lat: 23.0225, lng: 72.5714, zoom: 12 },
+  { name: 'Haryana (Gurugram)', lat: 28.4595, lng: 77.0266, zoom: 12 },
+  { name: 'Himachal Pradesh (Shimla)', lat: 31.1048, lng: 77.1734, zoom: 12 },
+  { name: 'Jammu & Kashmir (Srinagar)', lat: 34.0837, lng: 74.7973, zoom: 12 },
+  { name: 'Jharkhand (Ranchi)', lat: 23.3441, lng: 85.3096, zoom: 12 },
+  { name: 'Kerala (Thiruvananthapuram)', lat: 8.5241, lng: 76.9366, zoom: 12 },
+  { name: 'Ladakh (Leh)', lat: 34.1526, lng: 77.5771, zoom: 12 },
+  { name: 'Madhya Pradesh (Bhopal)', lat: 23.2599, lng: 77.4126, zoom: 12 },
   { name: 'Maharashtra (Mumbai)', lat: 19.0760, lng: 72.8777, zoom: 12 },
+  { name: 'Manipur (Imphal)', lat: 24.8170, lng: 93.9368, zoom: 12 },
+  { name: 'Meghalaya (Shillong)', lat: 25.5788, lng: 91.8831, zoom: 12 },
+  { name: 'Mizoram (Aizawl)', lat: 23.7307, lng: 92.7173, zoom: 12 },
+  { name: 'Nagaland (Kohima)', lat: 25.6751, lng: 94.1086, zoom: 12 },
+  { name: 'Odisha (Bhubaneswar)', lat: 20.2961, lng: 85.8245, zoom: 12 },
+  { name: 'Punjab (Chandigarh)', lat: 30.7333, lng: 76.7794, zoom: 12 },
+  { name: 'Rajasthan (Jaipur)', lat: 26.9124, lng: 75.7873, zoom: 12 },
+  { name: 'Sikkim (Gangtok)', lat: 27.3389, lng: 88.6065, zoom: 12 },
   { name: 'Tamil Nadu (Chennai)', lat: 13.0827, lng: 80.2707, zoom: 12 },
   { name: 'Telangana (Hyderabad)', lat: 17.3850, lng: 78.4867, zoom: 12 },
+  { name: 'Tripura (Agartala)', lat: 23.8315, lng: 91.2868, zoom: 12 },
+  { name: 'Uttar Pradesh (Lucknow)', lat: 26.8467, lng: 80.9462, zoom: 12 },
+  { name: 'Uttarakhand (Dehradun)', lat: 30.3165, lng: 78.0322, zoom: 12 },
   { name: 'West Bengal (Kolkata)', lat: 22.5726, lng: 88.3639, zoom: 12 }
 ];
 
@@ -213,7 +238,7 @@ export function Home() {
           </button>
           
           {isRegionDropdownOpen && (
-            <div className="absolute top-12 left-0 w-64 bg-[#1C1D26] border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-800/50">
+            <div className="absolute top-12 left-0 w-64 max-h-80 overflow-y-auto custom-scrollbar bg-[#1C1D26] border border-slate-800 rounded-xl shadow-2xl z-50 divide-y divide-slate-800/50">
               {REGIONS.map((region) => (
                 <button
                   key={region.name}
