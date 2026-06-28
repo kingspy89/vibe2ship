@@ -31,6 +31,13 @@ const rateLimiter = (req: express.Request, res: express.Response, next: express.
   next();
 };
 
+function validateBase64ImageSignature(base64Str: string): boolean {
+  const dataIndex = base64Str.indexOf(',');
+  const cleanBase64 = dataIndex !== -1 ? base64Str.substring(dataIndex + 1) : base64Str;
+  const prefix = cleanBase64.substring(0, 16);
+  return prefix.startsWith('/9j/') || prefix.startsWith('iVBORw');
+}
+
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -79,11 +86,15 @@ async function startServer() {
   });
 
   // Orchestrator Endpoint
-  app.post("/api/reports", async (req, res) => {
+  app.post("/api/reports", rateLimiter, async (req, res) => {
     try {
       const { photoBase64, mimeType, caption, lat, lng, userId } = req.body;
       if (!photoBase64 || !lat || !lng) {
         return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      if (!validateBase64ImageSignature(photoBase64)) {
+        return res.status(400).json({ error: "Invalid image format. Only JPEG and PNG are supported." });
       }
 
       console.log(`[Orchestrator] Starting pipeline for new report at ${lat}, ${lng}`);
@@ -216,7 +227,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
+    app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
@@ -229,7 +240,33 @@ async function startServer() {
   const { GoogleGenAI, Modality } = await import("@google/genai");
   const wss = new WebSocketServer({ server: httpServer, path: "/api/live" });
   
+  let activeConnections = 0;
+  const MAX_CONCURRENT_SESSIONS = 5;
+
   wss.on("connection", async (clientWs) => {
+    if (activeConnections >= MAX_CONCURRENT_SESSIONS) {
+      console.warn("[WebSocket] Connection rejected: Max sessions reached");
+      clientWs.close(1008, "Max concurrent sessions reached");
+      return;
+    }
+
+    activeConnections++;
+    console.log(`[WebSocket] Client connected. Active sessions: ${activeConnections}`);
+    
+    let lastActivityTime = Date.now();
+    let packetCount = 0;
+    let limitResetTime = Date.now();
+
+    // Idle connection checker (triggers every 10 seconds, times out after 60 seconds of silence)
+    const idleInterval = setInterval(() => {
+      const elapsed = Date.now() - lastActivityTime;
+      if (elapsed > 60000) {
+        console.log("[WebSocket] Closing idle session due to 60s inactivity");
+        clearInterval(idleInterval);
+        clientWs.close(1000, "Inactivity timeout");
+      }
+    }, 10000);
+
     try {
       const ai = new GoogleGenAI({ 
         apiKey: process.env.GEMINI_API_KEY,
@@ -264,6 +301,20 @@ async function startServer() {
       });
 
       clientWs.on("message", (data) => {
+        lastActivityTime = Date.now();
+        
+        // Rate limit audio packets: max 20 audio packets per second per connection
+        const now = Date.now();
+        if (now - limitResetTime > 1000) {
+          packetCount = 0;
+          limitResetTime = now;
+        }
+        packetCount++;
+        if (packetCount > 20) {
+          console.warn("[WebSocket] Packet rate limit exceeded, skipping frame");
+          return;
+        }
+
         try {
           const { audio } = JSON.parse(data.toString());
           if (audio) {
@@ -277,9 +328,14 @@ async function startServer() {
       });
 
       clientWs.on("close", () => {
+        clearInterval(idleInterval);
+        activeConnections--;
+        console.log(`[WebSocket] Client disconnected. Active sessions: ${activeConnections}`);
         session.close();
       });
     } catch (e) {
+      clearInterval(idleInterval);
+      activeConnections--;
       console.error("Error setting up Live API session:", e);
       clientWs.close();
     }

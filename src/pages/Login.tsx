@@ -133,20 +133,6 @@ export function Login() {
             )}
             Sign in with Google
           </Button>
-
-          <div className="mt-4 p-3.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-xs text-indigo-300 space-y-1.5">
-            <div className="flex items-center space-x-1.5 font-bold">
-              <span>⚠️</span>
-              <span>Cloud Auth Configuration Tip</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              If signing in with your Google account fails on this domain, make sure to add:
-              <code className="block w-full text-center bg-slate-950 border border-slate-800 rounded px-2 py-1 my-1 text-[10px] font-mono text-slate-200 select-all select-none">
-                {window.location.hostname}
-              </code>
-              to the <strong>Authorized Domains</strong> list under your <strong>Firebase Console &gt; Authentication &gt; Settings</strong>.
-            </p>
-          </div>
         </CardContent>
       </Card>
 
