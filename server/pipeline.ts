@@ -28,6 +28,47 @@ function getAI(): GoogleGenAI {
   return aiClient;
 }
 
+async function callGeminiWithRetry(
+  model: string,
+  options: any,
+  action: 'generateContent' | 'embedContent' = 'generateContent',
+  retries = 2,
+  delay = 1000
+): Promise<any> {
+  try {
+    const ai = getAI();
+    if (action === 'embedContent') {
+      return await ai.models.embedContent({ model, ...options });
+    } else {
+      return await ai.models.generateContent({ model, ...options });
+    }
+  } catch (err: any) {
+    const status = err.status || (err.error && err.error.code);
+    const message = err.message || '';
+    const isTransient = status === 429 || status === 503 || message.includes('fetch failed') || message.includes('demand') || message.includes('UNAVAILABLE') || message.includes('Unavailable');
+
+    if (retries > 0 && isTransient) {
+      console.warn(`[Gemini API] Transient error (${status || 'unknown'}). Retrying ${model} in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return callGeminiWithRetry(model, options, action, retries - 1, delay * 1.5);
+    }
+    
+    // If it's the primary generation model and it failed, try backup model gemini-2.0-flash
+    if (model === 'gemini-2.5-flash') {
+      console.warn(`[Gemini API] Primary model gemini-2.5-flash failed. Falling back to gemini-2.0-flash...`);
+      return callGeminiWithRetry('gemini-2.0-flash', options, action, 1, 1000);
+    }
+    
+    // If embedding model gemini-embedding-2 fails, try backup gemini-embedding-001
+    if (model === 'gemini-embedding-2') {
+      console.warn(`[Gemini API] Primary embedding model failed. Falling back to gemini-embedding-001...`);
+      return callGeminiWithRetry('gemini-embedding-001', options, action, 1, 1000);
+    }
+
+    throw err;
+  }
+}
+
 // Haversine distance in meters
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371e3; // metres
@@ -92,8 +133,7 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
   const prompt = `You are an AI assistant for a civic issue reporting platform. Analyze the provided image and caption. Categorize the issue, provide a title, a short description, and a preliminary severity score.
 Caption provided by user: "${caption || 'None'}"`;
 
-  const response = await getAI().models.generateContent({
-    model: 'gemini-3.1-pro-preview',
+  const response = await callGeminiWithRetry('gemini-2.5-flash', {
     contents: [
       prompt,
       {
@@ -125,10 +165,9 @@ export async function runAgent2(
   category: string
 ) {
   // 1. Get embedding for new report
-  const embeddingResponse = await getAI().models.embedContent({
-    model: 'gemini-embedding-2-preview',
+  const embeddingResponse = await callGeminiWithRetry('gemini-embedding-2', {
     contents: description,
-  });
+  }, 'embedContent');
   const newEmbedding = embeddingResponse.embeddings?.[0]?.values;
   if (!newEmbedding) throw new Error("Failed to get embedding");
 
@@ -221,8 +260,7 @@ Return a JSON object with:
       required: ["decision", "reasoning"]
     };
 
-    const mergeResponse = await getAI().models.generateContent({
-      model: 'gemini-3.1-flash-lite', // fast reasoning
+    const mergeResponse = await callGeminiWithRetry('gemini-2.5-flash', {
       contents: reasoningPrompt,
       config: {
         responseMimeType: "application/json",
@@ -273,8 +311,7 @@ Scoring Rubric (1-5):
 
 Return the JSON output.`;
 
-  const response = await getAI().models.generateContent({
-    model: 'gemini-3.1-pro-preview',
+  const response = await callGeminiWithRetry('gemini-2.5-flash', {
     contents: [
       prompt,
       {

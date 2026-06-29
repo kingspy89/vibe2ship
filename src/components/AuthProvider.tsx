@@ -45,23 +45,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // If a mock login occurred in the meantime, ignore this trigger
       if (localStorage.getItem('civicpulse_mock_user')) return;
 
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        // Check if user has an admin role in the users collection
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        setIsAdmin(userDoc.exists() && userDoc.data().role === 'admin');
-        
-        // Save user profile without overwriting existing role
-        await setDoc(doc(db, 'users', firebaseUser.uid), {
-          email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-          lastLogin: Date.now()
-        }, { merge: true });
-      } else {
-        setIsAdmin(false);
+      try {
+        setUser(firebaseUser);
+        if (firebaseUser) {
+          try {
+            // Check if user has an admin role in the users collection
+            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+            setIsAdmin(userDoc.exists() && userDoc.data().role === 'admin');
+            
+            // Save user profile without overwriting existing role
+            await setDoc(doc(db, 'users', firebaseUser.uid), {
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+              lastLogin: Date.now()
+            }, { merge: true });
+          } catch (dbErr) {
+            console.error("Firestore DB check/write failed during auth transition:", dbErr);
+            setIsAdmin(false);
+          }
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        console.error("Auth state change handler failed:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsubscribe;
   }, []);
