@@ -14,6 +14,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 
 const REGIONS = [
+  { name: 'All India (Global View)', lat: 20.5937, lng: 78.9629, zoom: 5 },
   { name: 'Karnataka (Bengaluru)', lat: 12.9716, lng: 77.5946, zoom: 12 },
   { name: 'Andhra Pradesh (Amaravati)', lat: 16.5062, lng: 80.6480, zoom: 12 },
   { name: 'Arunachal Pradesh (Itanagar)', lat: 27.1020, lng: 93.6166, zoom: 12 },
@@ -82,6 +83,7 @@ export function Home() {
         issue_id: doc.id,
         ...doc.data()
       })) as Issue[];
+      console.log(`[Firestore] Loaded ${issuesData.length} issues in total from Firestore.`, issuesData);
       setIssues(issuesData);
       
       let resolved = 0;
@@ -163,9 +165,12 @@ export function Home() {
     }
     
     // Proximity boundary filter to match selected region/state: bounding box (approx. 20-30km radius)
-    const latDiff = Math.abs(issue.lat - selectedRegion.lat);
-    const lngDiff = Math.abs(issue.lng - selectedRegion.lng);
-    const matchesRegion = latDiff < 0.25 && lngDiff < 0.25;
+    let matchesRegion = true;
+    if (selectedRegion.name !== 'All India (Global View)') {
+      const latDiff = Math.abs(issue.lat - selectedRegion.lat);
+      const lngDiff = Math.abs(issue.lng - selectedRegion.lng);
+      matchesRegion = latDiff < 0.25 && lngDiff < 0.25;
+    }
 
     return matchesCategory && matchesSeverity && matchesRegion;
   });
