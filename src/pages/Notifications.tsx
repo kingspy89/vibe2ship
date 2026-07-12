@@ -16,6 +16,16 @@ export function Notifications() {
   useEffect(() => {
     if (!user) return;
 
+    const MOCK_NOTIFICATIONS = [
+      {
+        id: 'mock_notif_1',
+        title: 'New Issue Registered',
+        message: 'Your report for "Severe Pothole near Central Crossing" was successfully registered.',
+        read: false,
+        created_at: Date.now() - 50000
+      }
+    ];
+
     const q = query(
       collection(db, 'notifications'),
       where('user_id', '==', user.uid)
@@ -27,6 +37,10 @@ export function Notifications() {
         ...doc.data()
       }) as any);
       setNotifications(data.sort((a, b) => b.created_at - a.created_at));
+      setLoading(false);
+    }, (err) => {
+      console.warn("[Firestore] Notifications load failed (billing expired fallback):", err);
+      setNotifications(MOCK_NOTIFICATIONS);
       setLoading(false);
     });
 

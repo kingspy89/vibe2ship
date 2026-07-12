@@ -48,6 +48,69 @@ const REGIONS = [
   { name: 'West Bengal (Kolkata)', lat: 22.5726, lng: 88.3639, zoom: 12 }
 ];
 
+const MOCK_ISSUES: Issue[] = [
+  {
+    issue_id: 'mock_1',
+    category: 'pothole',
+    auto_title: 'Severe Pothole near Central Crossing',
+    auto_description: 'Large crater in the middle of the road causing traffic slowdowns and hazard to vehicles.',
+    lat: 12.9352,
+    lng: 77.6245,
+    severity_score: 4,
+    severity_justification: 'Deep pothole in high-speed travel lane.',
+    status: 'Reported',
+    report_count: 5,
+    priority_score: 4 * Math.log(6),
+    created_at: Date.now() - 100000,
+    updated_at: Date.now(),
+  },
+  {
+    issue_id: 'mock_2',
+    category: 'garbage',
+    auto_title: 'Overflowing Waste Bin',
+    auto_description: 'Garbage hasn\'t been collected for 3 days, spilling onto the sidewalk and walking lanes.',
+    lat: 12.9348,
+    lng: 77.6250,
+    severity_score: 3,
+    severity_justification: 'Sanitary concern and sidewalk obstruction.',
+    status: 'In Progress',
+    report_count: 8,
+    priority_score: 3 * Math.log(9),
+    created_at: Date.now() - 200000,
+    updated_at: Date.now(),
+  },
+  {
+    issue_id: 'mock_3',
+    category: 'streetlight',
+    auto_title: 'Main Streetlight Node out',
+    auto_description: 'Pitch black pedestrian crossing, dangerous at night.',
+    lat: 12.9360,
+    lng: 77.6240,
+    severity_score: 3,
+    severity_justification: 'Safety hazard during night hours.',
+    status: 'Acknowledged',
+    report_count: 2,
+    priority_score: 3 * Math.log(3),
+    created_at: Date.now() - 300000,
+    updated_at: Date.now(),
+  },
+  {
+    issue_id: 'mock_4',
+    category: 'water_leakage',
+    auto_title: 'Major Water Line Burst',
+    auto_description: 'Pipeline burst spraying clean water onto the street and flooding the curb.',
+    lat: 28.6150,
+    lng: 77.2100,
+    severity_score: 5,
+    severity_justification: 'Immediate flooding hazard and massive clean water wastage.',
+    status: 'Reported',
+    report_count: 12,
+    priority_score: 5 * Math.log(13),
+    created_at: Date.now() - 400000,
+    updated_at: Date.now(),
+  }
+];
+
 export function Home() {
   const { user } = useAuth();
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -72,6 +135,8 @@ export function Home() {
     );
     const unsub = onSnapshot(q, (snap) => {
       setUnreadNotificationsCount(snap.docs.length);
+    }, (err) => {
+      console.warn("[Firestore] Notifications onSnapshot failed:", err);
     });
     return () => unsub();
   }, [user]);
@@ -93,6 +158,13 @@ export function Home() {
       setStats({
         total: issuesData.length,
         resolved
+      });
+    }, (error) => {
+      console.warn("[Firestore] Failed to connect to issues collection (likely billing expired). Loading local mock issues.", error);
+      setIssues(MOCK_ISSUES);
+      setStats({
+        total: MOCK_ISSUES.length,
+        resolved: 1 // Simulated resolved issue count
       });
     });
 
@@ -129,11 +201,18 @@ export function Home() {
     const unsubReports = onSnapshot(collection(db, 'reports'), (snap) => {
       reportsData = snap.docs.map(d => d.data());
       updateLeaderboard();
+    }, (err) => {
+      console.warn("[Firestore] Reports listener failed (billing expired fallback):", err);
+      // Mock some reports to populate leaderboard
+      reportsData = [{ user_id: 'anonymous' }, { user_id: 'civic_hero_1' }, { user_id: 'civic_hero_2' }];
+      updateLeaderboard();
     });
 
     const unsubVerifications = onSnapshot(collection(db, 'verifications'), (snap) => {
       verificationsData = snap.docs.map(d => d.data());
       updateLeaderboard();
+    }, (err) => {
+      console.warn("[Firestore] Verifications listener failed:", err);
     });
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
@@ -143,6 +222,8 @@ export function Home() {
       });
       usersMap = uMap;
       updateLeaderboard();
+    }, (err) => {
+      console.warn("[Firestore] Users listener failed:", err);
     });
 
     return () => {

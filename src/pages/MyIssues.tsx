@@ -19,6 +19,24 @@ export function MyIssues() {
 
     let unsubIssues: (() => void) | null = null;
 
+    const MOCK_MY_ISSUES: Issue[] = [
+      {
+        issue_id: 'mock_1',
+        category: 'pothole',
+        auto_title: 'Severe Pothole near Central Crossing',
+        auto_description: 'Large crater in the middle of the road causing traffic slowdowns and hazard to vehicles.',
+        lat: 12.9352,
+        lng: 77.6245,
+        severity_score: 4,
+        severity_justification: 'Deep pothole in high-speed travel lane.',
+        status: 'Reported',
+        report_count: 5,
+        priority_score: 4 * Math.log(6),
+        created_at: Date.now() - 100000,
+        updated_at: Date.now(),
+      }
+    ];
+
     const qReports = query(collection(db, 'reports'), where('user_id', '==', user.uid));
     const unsubReports = onSnapshot(qReports, (reportsSnap) => {
       const userIssueIds = new Set(reportsSnap.docs.map(doc => doc.data().issue_id).filter(Boolean));
@@ -39,7 +57,15 @@ export function MyIssues() {
           
         setIssues(userIssues.sort((a, b) => b.created_at - a.created_at));
         setLoading(false);
+      }, (err) => {
+        console.warn("[Firestore] Failed to connect to issues (billing expired fallback):", err);
+        setIssues(MOCK_MY_ISSUES);
+        setLoading(false);
       });
+    }, (err) => {
+      console.warn("[Firestore] Failed to connect to reports:", err);
+      setIssues(MOCK_MY_ISSUES);
+      setLoading(false);
     });
 
     return () => {
