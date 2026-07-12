@@ -125,12 +125,16 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
       severity_signal: {
         type: Type.NUMBER,
         description: "A preliminary severity signal from 1 (low) to 5 (high) based purely on visual appearance."
+      },
+      severity_justification: {
+        type: Type.STRING,
+        description: "A short justification explaining why this severity score was given."
       }
     },
-    required: ["category", "confidence", "auto_title", "auto_description", "severity_signal"]
+    required: ["category", "confidence", "auto_title", "auto_description", "severity_signal", "severity_justification"]
   };
 
-  const prompt = `You are an AI assistant for a civic issue reporting platform. Analyze the provided image and caption. Categorize the issue, provide a title, a short description, and a preliminary severity score.
+  const prompt = `You are an AI assistant for a civic issue reporting platform. Analyze the provided image and caption. Categorize the issue, provide a title, a short description, a severity score (1-5), and a severity justification.
 Caption provided by user: "${caption || 'None'}"`;
 
   const response = await callGeminiWithRetry('gemini-2.5-flash', {
@@ -285,8 +289,8 @@ export async function runAgent3(
   category: string,
   auto_description: string,
   report_count: number,
-  photoBase64: string,
-  mimeType: string
+  photoBase64?: string,
+  mimeType?: string
 ) {
   const schema: Schema = {
     type: Type.OBJECT,
@@ -297,7 +301,7 @@ export async function runAgent3(
     required: ["urgency_score", "justification"]
   };
 
-  const prompt = `You are a civic issue triage agent. Assign an urgency score (1-5) and a short justification based on the provided issue details and image.
+  const prompt = `You are a civic issue triage agent. Assign an urgency score (1-5) and a short justification based on the provided issue details.
 Category: ${category}
 Description: ${auto_description}
 Report Count: ${report_count} (higher report count implies wider impact)
@@ -311,16 +315,18 @@ Scoring Rubric (1-5):
 
 Return the JSON output.`;
 
-  const response = await callGeminiWithRetry('gemini-2.5-flash', {
-    contents: [
-      prompt,
-      {
-        inlineData: {
-          data: photoBase64,
-          mimeType: mimeType
-        }
+  const contents: any[] = [prompt];
+  if (photoBase64 && mimeType) {
+    contents.push({
+      inlineData: {
+        data: photoBase64,
+        mimeType: mimeType
       }
-    ],
+    });
+  }
+
+  const response = await callGeminiWithRetry('gemini-2.5-flash', {
+    contents,
     config: {
       responseMimeType: "application/json",
       responseSchema: schema,

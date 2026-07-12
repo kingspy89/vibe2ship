@@ -144,19 +144,16 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
         reportCount = (issueSnap.data()?.report_count || 1) + 1;
       }
       
-      // Agent 3: Re-score Severity
-      console.log(`[Orchestrator] Running Agent 3 (Severity)...`);
+      // Agent 3: Re-score Severity without passing the heavy image (text-only re-scoring)
+      console.log(`[Orchestrator] Running Agent 3 (Severity re-scoring, text-only)...`);
       const agent3Result = await runAgent3(
         agent1Result.category,
         agent1Result.auto_description,
-        reportCount,
-        photoBase64,
-        mimeType
+        reportCount
       );
       console.log(`[Orchestrator] Agent 3 output:`, agent3Result);
 
-      // Priority formula: urgency_score * log(report_count + 1) * recency_decay
-      // Simplification for hackathon without complex recency_decay
+      // Priority formula: urgency_score * log(report_count + 1)
       const priorityScore = agent3Result.urgency_score * Math.log(reportCount + 1);
 
       batch.update(issueRef, {
@@ -168,18 +165,11 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       });
     } else {
       console.log(`[Orchestrator] Creating new issue...`);
-      // Agent 3: Score Severity for new issue
-      console.log(`[Orchestrator] Running Agent 3 (Severity)...`);
-      const agent3Result = await runAgent3(
-        agent1Result.category,
-        agent1Result.auto_description,
-        1,
-        photoBase64,
-        mimeType
-      );
-      console.log(`[Orchestrator] Agent 3 output:`, agent3Result);
-
-      const priorityScore = agent3Result.urgency_score * Math.log(2);
+      // Bypass Agent 3 vision call - use Agent 1's combined categorization + severity scoring
+      const severityScore = agent1Result.severity_signal || 3;
+      const severityJustification = agent1Result.severity_justification || 'AI estimated severity based on visual details.';
+      
+      const priorityScore = severityScore * Math.log(2);
 
       const newIssueRef = doc(collection(dbAdmin, 'issues'));
       targetIssueId = newIssueRef.id;
@@ -190,8 +180,8 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
         auto_description: agent1Result.auto_description,
         lat,
         lng,
-        severity_score: agent3Result.urgency_score,
-        severity_justification: agent3Result.justification,
+        severity_score: severityScore,
+        severity_justification: severityJustification,
         status: 'Reported',
         report_count: 1,
         priority_score: priorityScore,

@@ -123,6 +123,15 @@ export function Report() {
           photoUrl: photoUrl
         })
       });
+      if (!res.ok) {
+        const text = await res.text();
+        let errMsg = `Server returned ${res.status}: ${res.statusText}`;
+        try {
+          const json = JSON.parse(text);
+          if (json.error) errMsg = json.error;
+        } catch {}
+        throw new Error(errMsg);
+      }
 
       const data = await res.json();
       if (data.success) {
@@ -130,9 +139,9 @@ export function Report() {
       } else {
         alert("Error: " + data.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Failed to submit report.");
+      alert("Failed to submit report. Details: " + (error?.message || error));
     } finally {
       setIsSubmitting(false);
     }
