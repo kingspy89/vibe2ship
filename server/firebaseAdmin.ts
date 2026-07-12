@@ -1,10 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import fs from 'fs';
-import path from 'path';
-
-const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
-const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+import config from '../firebase-applet-config.json';
 
 const app = initializeApp({
   projectId: config.projectId,

@@ -142,3 +142,53 @@ service cloud.firestore {
     npm run dev
     ```
 4.  Open the application at **`http://localhost:3000`**.
+
+---
+
+## ☁️ Cloud Deployment Guidelines
+
+CivicPulse AI supports deployment in two primary environments depending on your feature requirements:
+
+### Option 1: Vercel (Serverless Deployments)
+
+Vercel hosts the React frontend statically and deploys backend endpoints (`/api/*`) as Serverless Functions via the included `vercel.json` configuration.
+
+#### Setup Steps:
+1. **Import the repository** into your Vercel Dashboard.
+2. **Configure Environment Variables** in Vercel settings:
+   - `GEMINI_API_KEY`: Your Gemini API key.
+   - `VITE_GOOGLE_MAPS_API_KEY`: Your Google Maps JavaScript API Key.
+3. **Deploy** the project. Vercel will build both the frontend and backend function automatically.
+
+#### 🔐 Fix Google Authentication Issue (Authorized Domains):
+If you get an `auth/unauthorized-domain` error during Google Sign-in on Vercel:
+1. Go to the **Firebase Console** -> **Authentication** -> **Settings** tab.
+2. Under **Authorized domains**, click **Add domain**.
+3. Enter your Vercel deployment domain (e.g., `civicpulse-ai.vercel.app`).
+4. Go to **Google Cloud Console** -> **APIs & Services** -> **Credentials**.
+5. Select your OAuth 2.0 Client ID (Web Client).
+6. Under **Authorized JavaScript origins**, add your Vercel domain URL.
+
+> [!WARNING]
+> **WebSocket Live Voice Assistant Limitation:**
+> Vercel Serverless Functions do not support persistent connections. Hitting the microphone to trigger the Gemini Live Assistant (`/api/live`) will fail on Vercel serverless. Follow Option 2 below if you need full WebSocket audio assistance.
+
+---
+
+### Option 2: Google Cloud Run (Full Containerized Deployment)
+
+To enable the full experience (including the real-time WebSocket Live Voice Assistant), deploy the project using the containerized `Dockerfile` to a persistent hosting environment like Google Cloud Run.
+
+#### Setup Steps:
+1. Ensure the Google Cloud SDK (`gcloud`) is installed and authenticated.
+2. Run the deployment command from the project root:
+   ```bash
+   gcloud run deploy civicpulse-ai \
+     --source . \
+     --platform managed \
+     --allow-unauthenticated \
+     --set-env-vars="GEMINI_API_KEY=your_gemini_api_key_here,VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key_here"
+   ```
+3. Copy the returned Service URL (e.g. `https://civicpulse-ai-xxxxxx.a.run.app`).
+4. Add this Cloud Run URL to your **Firebase Authorized Domains** and **OAuth 2.0 Authorized JavaScript origins** to allow Google Sign-In.
+
