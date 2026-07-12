@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import localConfig from '../firebase-applet-config';
 
 let config: {
@@ -41,21 +41,22 @@ else {
 
 let app: any;
 try {
-  app = initializeApp({
-    projectId: config.projectId,
-    appId: config.appId,
-    apiKey: config.apiKey,
-    authDomain: config.authDomain,
-    storageBucket: config.storageBucket,
-  });
+  const apps = getApps();
+  if (apps.length === 0) {
+    app = initializeApp({
+      projectId: config.projectId,
+    });
+  } else {
+    app = getApp();
+  }
 } catch (e) {
-  console.error('[Firebase] Failed to initialize App:', e);
+  console.error('[Firebase] Failed to initialize Admin App:', e);
 }
 
 let dbAdmin: any = null;
 try {
   if (app) {
-    dbAdmin = getFirestore(app, config.firestoreDatabaseId);
+    dbAdmin = getFirestore(app);
   }
 } catch (e) {
   console.error('[Firebase] Failed to initialize Firestore dbAdmin:', e);

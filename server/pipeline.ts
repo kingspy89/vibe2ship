@@ -1,6 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { dbAdmin } from "./firebaseAdmin";
-import { collection, getDocs, query, where } from "firebase/firestore";
 
 interface CacheItem {
   data: any[];
@@ -135,7 +134,7 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
   };
 
   const prompt = `You are an AI assistant for a civic issue reporting platform. Analyze the provided image and caption. Categorize the issue, provide a title, a short description, a severity score (1-5), and a severity justification.
-Caption provided by user: "${caption || 'None'}"`;
+  Caption provided by user: "${caption || 'None'}"`;
 
   const response = await callGeminiWithRetry('gemini-2.5-flash', {
     contents: [
@@ -185,16 +184,23 @@ export async function runAgent2(
     issuesData = cached.data;
   } else {
     console.log(`[Cache] Fetching active issues from Firestore for category: ${category}`);
-    const issuesQuery = query(
-      collection(dbAdmin, 'issues'),
-      where('category', '==', category),
-      where('status', 'in', ['Reported', 'Community Verified', 'Acknowledged', 'In Progress'])
-    );
-    const issuesSnapshot = await getDocs(issuesQuery);
-    issuesData = issuesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    if (dbAdmin) {
+      try {
+        const issuesSnapshot = await dbAdmin.collection('issues')
+          .where('category', '==', category)
+          .where('status', 'in', ['Reported', 'Community Verified', 'Acknowledged', 'In Progress'])
+          .get();
+        issuesData = issuesSnapshot.docs.map((doc: any) => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (dbErr) {
+        console.error("[Pipeline] Firestore fetch in Agent 2 failed:", dbErr);
+        issuesData = [];
+      }
+    } else {
+      issuesData = [];
+    }
     activeIssuesCache[category] = {
       data: issuesData,
       timestamp: now

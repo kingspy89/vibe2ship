@@ -5,7 +5,6 @@ import express from "express";
 import cors from "cors";
 import { runAgent1, runAgent2, runAgent3, invalidatePipelineCache } from "../server/pipeline";
 import { dbAdmin } from "../server/firebaseAdmin";
-import { collection, doc, getDoc, writeBatch } from "firebase/firestore";
 
 const app = express();
 
@@ -69,11 +68,14 @@ app.get("/api/debug", async (req, res) => {
   }
 
   try {
-    const { limit, getDocs } = await import("firebase/firestore");
-    const issuesQuery = query(collection(dbAdmin, 'issues'), limit(1));
-    const snap = await getDocs(issuesQuery);
-    diagnostic.firebase.status = "connected";
-    diagnostic.firebase.issuesCount = snap.size;
+    if (dbAdmin) {
+      const snap = await dbAdmin.collection('issues').limit(1).get();
+      diagnostic.firebase.status = "connected";
+      diagnostic.firebase.issuesCount = snap.size;
+    } else {
+      diagnostic.firebase.status = "error";
+      diagnostic.firebase.error = "dbAdmin is null";
+    }
   } catch (err: any) {
     diagnostic.firebase.status = "error";
     diagnostic.firebase.error = err.message;
@@ -86,7 +88,10 @@ app.get("/api/debug", async (req, res) => {
 // Seed endpoint for demo
 app.post("/api/seed", rateLimiter, async (req, res) => {
   try {
-    const batch = writeBatch(dbAdmin);
+    if (!dbAdmin) {
+      throw new Error("dbAdmin is null");
+    }
+    const batch = dbAdmin.batch();
     const clusters = [
       // Karnataka (Bengaluru)
       { lat: 12.9352, lng: 77.6245, category: 'pothole', title: 'Severe Pothole near Signal', desc: 'Large crater in the middle of the road causing traffic slowdowns.' },
@@ -113,7 +118,7 @@ app.post("/api/seed", rateLimiter, async (req, res) => {
 
     for (let i = 0; i < clusters.length; i++) {
       const cluster = clusters[i];
-      const issueRef = doc(collection(dbAdmin, 'issues'));
+      const issueRef = dbAdmin.collection('issues').doc();
       batch.set(issueRef, {
         category: cluster.category,
         auto_title: cluster.title,
@@ -148,6 +153,10 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       return res.status(400).json({ error: "Invalid image format. Only JPEG and PNG are supported." });
     }
 
+    if (!dbAdmin) {
+      throw new Error("dbAdmin is null");
+    }
+
     console.log(`[Orchestrator] Starting pipeline for new report at ${lat}, ${lng}`);
 
     // Step 1: Agent 1 (Categorization)
@@ -168,15 +177,15 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
     let targetIssueId = agent2Result.matched_issue_id;
     let reportCount = 1;
 
-    const batch = writeBatch(dbAdmin);
-    const reportRef = doc(collection(dbAdmin, 'reports'));
+    const batch = dbAdmin.batch();
+    const reportRef = dbAdmin.collection('reports').doc();
     const now = Date.now();
 
     if (agent2Result.decision === 'merge' && targetIssueId) {
       console.log(`[Orchestrator] Merging into existing issue: ${targetIssueId}`);
-      const issueRef = doc(dbAdmin, 'issues', targetIssueId);
-      const issueSnap = await getDoc(issueRef);
-      if (issueSnap.exists()) {
+      const issueRef = dbAdmin.collection('issues').doc(targetIssueId);
+      const issueSnap = await issueRef.get();
+      if (issueSnap.exists) {
         reportCount = (issueSnap.data()?.report_count || 1) + 1;
       }
       
@@ -206,7 +215,7 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       
       const priorityScore = severityScore * Math.log(2);
 
-      const newIssueRef = doc(collection(dbAdmin, 'issues'));
+      const newIssueRef = dbAdmin.collection('issues').doc();
       targetIssueId = newIssueRef.id;
 
       batch.set(newIssueRef, {
@@ -240,7 +249,7 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       created_at: now
     });
 
-    const notificationRef = doc(collection(dbAdmin, 'notifications'));
+    const notificationRef = dbAdmin.collection('notifications').doc();
     batch.set(notificationRef, {
       user_id: userId || 'anonymous',
       title: agent2Result.decision === 'merge' ? 'Report Merged & Verified' : 'New Issue Registered',
@@ -282,24 +291,26 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       
       // Attempt writing to Firestore (in case DB is working but Gemini is not)
       try {
-        const batch = writeBatch(dbAdmin);
-        const newIssueRef = doc(dbAdmin, 'issues', mockIssueId);
-        batch.set(newIssueRef, {
-          category,
-          auto_title: title,
-          auto_description: caption || `A report about ${category}`,
-          lat: lat || 12.9352,
-          lng: lng || 77.6245,
-          severity_score: 3,
-          severity_justification: "Automatically determined in fallback simulation.",
-          status: 'Reported',
-          report_count: 1,
-          priority_score: 3 * Math.log(2),
-          created_at: Date.now(),
-          updated_at: Date.now()
-        });
-        await batch.commit();
-        console.log("[Orchestrator] Fallback write to Firestore succeeded!");
+        if (dbAdmin) {
+          const batch = dbAdmin.batch();
+          const newIssueRef = dbAdmin.collection('issues').doc(mockIssueId);
+          batch.set(newIssueRef, {
+            category,
+            auto_title: title,
+            auto_description: caption || `A report about ${category}`,
+            lat: lat || 12.9352,
+            lng: lng || 77.6245,
+            severity_score: 3,
+            severity_justification: "Automatically determined in fallback simulation.",
+            status: 'Reported',
+            report_count: 1,
+            priority_score: 3 * Math.log(2),
+            created_at: Date.now(),
+            updated_at: Date.now()
+          });
+          await batch.commit();
+          console.log("[Orchestrator] Fallback write to Firestore succeeded!");
+        }
       } catch (dbErr) {
         console.warn("[Orchestrator] Firestore write failed during fallback:", dbErr);
         // Continue with mock success response so the client doesn't break
