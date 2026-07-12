@@ -11,21 +11,16 @@ let config: {
   firestoreDatabaseId: string;
 };
 
-const configJson = process.env.FIREBASE_CONFIG_JSON;
-let parsedConfig: typeof config | null = null;
-if (configJson) {
+// 1. Try loading from a single FIREBASE_CONFIG_JSON environment variable
+if (process.env.FIREBASE_CONFIG_JSON) {
   try {
-    parsedConfig = JSON.parse(configJson);
+    config = JSON.parse(process.env.FIREBASE_CONFIG_JSON);
     console.log('[Firebase] Initialized using FIREBASE_CONFIG_JSON env variable.');
   } catch (err) {
-    console.error('[Firebase] Failed to parse FIREBASE_CONFIG_JSON. Falling back to other config sources:', err);
+    console.error('[Firebase] Failed to parse FIREBASE_CONFIG_JSON, falling back to bundled config:', err);
+    config = localConfig;
   }
-}
-
-// 1. Prefer valid FIREBASE_CONFIG_JSON
-if (parsedConfig) {
-  config = parsedConfig;
-}
+} 
 // 2. Try loading from individual environment variables
 else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY) {
   config = {
