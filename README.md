@@ -6,6 +6,11 @@ CivicPulse AI automates the reporting, deduplication, prioritization, and tracki
 
 ---
 
+### 📖 Technical Documentation & Pitch Deck
+*   **[Machine Learning & System Architecture](file:///d:/vibe2ship/ML_ARCHITECTURE.md):** Deep dive into the multi-agent AI pipeline, embedding-based deduplication algorithms, geospatial radius checks, dynamic priority formulas, and a ready-to-use 8-slide presentation deck outline.
+
+---
+
 ## 🎨 Visual Preview
 
 Here is a visual overview of the premium CivicPulse AI dark-themed dashboard and interactive features:

@@ -25,7 +25,7 @@ export function Notifications() {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      }) as any);
       setNotifications(data.sort((a, b) => b.created_at - a.created_at));
       setLoading(false);
     });

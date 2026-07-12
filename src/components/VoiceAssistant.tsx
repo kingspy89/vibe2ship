@@ -50,8 +50,14 @@ export function VoiceAssistant() {
     setIsConnecting(true);
     setMicError(null);
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/live`;
+      let wsUrl = import.meta.env.VITE_WS_URL;
+      if (!wsUrl) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsUrl = `${protocol}//${window.location.host}/api/live`;
+      } else if (wsUrl.startsWith('/')) {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsUrl = `${protocol}//${window.location.host}${wsUrl}`;
+      }
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
