@@ -38,6 +38,13 @@ function validateBase64ImageSignature(base64Str: string): boolean {
   return prefix.startsWith('/9j/') || prefix.startsWith('iVBORw');
 }
 
+app.use((req, res, next) => {
+  if (req.originalUrl) {
+    req.url = req.originalUrl;
+  }
+  next();
+});
+
 app.use(cors());
 app.use(express.json({ limit: '4mb' }));
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
