@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
-import config from '../firebase-applet-config.json';
+import config from '../firebase-applet-config';
 
 const app = initializeApp({
   projectId: config.projectId,

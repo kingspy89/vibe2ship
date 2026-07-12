@@ -1,26 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { createRequire } from 'module';
-import fs from 'fs';
-import path from 'path';
-
-let localConfig: any;
-if (typeof require !== 'undefined') {
-  localConfig = require('../firebase-applet-config.json');
-} else {
-  try {
-    const getImportMetaUrl = new Function('return import.meta.url');
-    const req = createRequire(getImportMetaUrl());
-    localConfig = req('../firebase-applet-config.json');
-  } catch (e) {
-    try {
-      const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
-      localConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch (err) {
-      console.error('[Firebase] Failed to load local config in fallback:', err);
-    }
-  }
-}
+import localConfig from '../firebase-applet-config';
 
 let config: {
   projectId: string;
@@ -56,7 +36,7 @@ else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY) {
 // 3. Fall back to statically bundled config file
 else {
   config = localConfig;
-  console.log('[Firebase] Initialized using bundled firebase-applet-config.json.');
+  console.log('[Firebase] Initialized using bundled firebase-applet-config.');
 }
 
 const app = initializeApp({
