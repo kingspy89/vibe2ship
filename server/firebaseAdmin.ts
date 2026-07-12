@@ -1,6 +1,26 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import localConfig from '../firebase-applet-config.json';
+import { createRequire } from 'module';
+import fs from 'fs';
+import path from 'path';
+
+let localConfig: any;
+if (typeof require !== 'undefined') {
+  localConfig = require('../firebase-applet-config.json');
+} else {
+  try {
+    const getImportMetaUrl = new Function('return import.meta.url');
+    const req = createRequire(getImportMetaUrl());
+    localConfig = req('../firebase-applet-config.json');
+  } catch (e) {
+    try {
+      const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+      localConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (err) {
+      console.error('[Firebase] Failed to load local config in fallback:', err);
+    }
+  }
+}
 
 let config: {
   projectId: string;
