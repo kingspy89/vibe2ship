@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { dbAdmin } from "./firebaseAdmin";
 
 interface CacheItem {
@@ -14,14 +13,16 @@ export function invalidatePipelineCache(category: string) {
   console.log(`[Cache] Invalidated active issues cache for category: ${category}`);
 }
 
-let aiClient: GoogleGenAI | null = null;
+let aiClient: any = null;
 
-function getAI(): GoogleGenAI {
+async function getAI() {
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
       throw new Error('GEMINI_API_KEY environment variable is required');
     }
+    // Dynamically load to prevent CommonJS/ESM boot-time loader errors on Vercel
+    const { GoogleGenAI } = await import("@google/genai");
     aiClient = new GoogleGenAI({ apiKey: key });
   }
   return aiClient;
@@ -35,7 +36,7 @@ async function callGeminiWithRetry(
   delay = 1000
 ): Promise<any> {
   try {
-    const ai = getAI();
+    const ai = await getAI();
     if (action === 'embedContent') {
       return await ai.models.embedContent({ model, ...options });
     } else {
@@ -101,32 +102,32 @@ function cosineSimilarity(A: number[], B: number[]) {
 // AGENT 1: Vision Categorization
 // ------------------------------------------------------------------
 export async function runAgent1(photoBase64: string, mimeType: string, caption?: string) {
-  const schema: Schema = {
-    type: Type.OBJECT,
+  const schema: any = {
+    type: "OBJECT",
     properties: {
       category: {
-        type: Type.STRING,
+        type: "STRING",
         enum: ['pothole', 'streetlight', 'garbage', 'water_leakage', 'other'],
         description: "The primary category of the issue shown in the image."
       },
       confidence: {
-        type: Type.NUMBER,
+        type: "NUMBER",
         description: "Confidence score between 0.0 and 1.0"
       },
       auto_title: {
-        type: Type.STRING,
+        type: "STRING",
         description: "A short, clear title for this issue."
       },
       auto_description: {
-        type: Type.STRING,
+        type: "STRING",
         description: "A 1-2 sentence description of the issue."
       },
       severity_signal: {
-        type: Type.NUMBER,
+        type: "NUMBER",
         description: "A preliminary severity signal from 1 (low) to 5 (high) based purely on visual appearance."
       },
       severity_justification: {
-        type: Type.STRING,
+        type: "STRING",
         description: "A short justification explaining why this severity score was given."
       }
     },
@@ -217,25 +218,30 @@ export async function runAgent2(
   const searchRadius = radiusMap[category] || 100;
 
   const candidateIssues = [];
-  for (const data of issuesData) {
-    const distance = getDistance(lat, lng, data.lat, data.lng);
+  for (const issue of issuesData) {
+    const distance = getDistance(lat, lng, issue.lat, issue.lng);
     if (distance <= searchRadius) {
-      // Need the embedding of this issue. We will store embeddings on the issue doc or recalculate.
-      // For simplicity, we assume 'embedding_vector' is on the issue doc, representing the primary description.
-      if (data.embedding_vector && data.embedding_vector.length > 0) {
-        const sim = cosineSimilarity(newEmbedding, data.embedding_vector);
+      if (issue.embedding_vector) {
+        const similarity = cosineSimilarity(newEmbedding, issue.embedding_vector);
         candidateIssues.push({
-          issue_id: data.id,
-          distance,
-          similarity: sim,
-          auto_title: data.auto_title,
-          auto_description: data.auto_description
+          issue_id: issue.id,
+          auto_title: issue.auto_title,
+          auto_description: issue.auto_description,
+          similarity,
+          distance
+        });
+      } else {
+        candidateIssues.push({
+          issue_id: issue.id,
+          auto_title: issue.auto_title,
+          auto_description: issue.auto_description,
+          similarity: 0.5,
+          distance
         });
       }
     }
   }
 
-  // If no candidates, create
   if (candidateIssues.length === 0) {
     return { decision: 'create', matched_issue_id: null, similarity_score: 0, newEmbedding };
   }
@@ -246,8 +252,6 @@ export async function runAgent2(
 
   // 3. LLM Reasoning to confirm merge if similarity is high enough
   if (bestCandidate.similarity > 0.85) {
-    // Almost certain match based on embedding, but let's do a quick LLM check just in case, or just auto-merge.
-    // The prompt says "let the agent reason over both image description and proximity"
     const reasoningPrompt = `
 You are an expert civic issue deduplication agent.
 New Report Description: "${description}"
@@ -261,11 +265,11 @@ Return a JSON object with:
 - reasoning: "short explanation"
 `;
 
-    const schema: Schema = {
-      type: Type.OBJECT,
+    const schema: any = {
+      type: "OBJECT",
       properties: {
-        decision: { type: Type.STRING, enum: ['merge', 'create'] },
-        reasoning: { type: Type.STRING }
+        decision: { type: "STRING", enum: ['merge', 'create'] },
+        reasoning: { type: "STRING" }
       },
       required: ["decision", "reasoning"]
     };
@@ -298,11 +302,11 @@ export async function runAgent3(
   photoBase64?: string,
   mimeType?: string
 ) {
-  const schema: Schema = {
-    type: Type.OBJECT,
+  const schema: any = {
+    type: "OBJECT",
     properties: {
-      urgency_score: { type: Type.NUMBER, description: "1 to 5, where 5 is critical/immediate danger." },
-      justification: { type: Type.STRING, description: "Short human-readable justification for the score." }
+      urgency_score: { type: "NUMBER", description: "1 to 5, where 5 is critical/immediate danger." },
+      justification: { type: "STRING", description: "Short human-readable justification for the score." }
     },
     required: ["urgency_score", "justification"]
   };
