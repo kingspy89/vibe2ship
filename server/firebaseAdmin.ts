@@ -39,12 +39,26 @@ else {
   console.log('[Firebase] Initialized using bundled firebase-applet-config.');
 }
 
-const app = initializeApp({
-  projectId: config.projectId,
-  appId: config.appId,
-  apiKey: config.apiKey,
-  authDomain: config.authDomain,
-  storageBucket: config.storageBucket,
-});
+let app: any;
+try {
+  app = initializeApp({
+    projectId: config.projectId,
+    appId: config.appId,
+    apiKey: config.apiKey,
+    authDomain: config.authDomain,
+    storageBucket: config.storageBucket,
+  });
+} catch (e) {
+  console.error('[Firebase] Failed to initialize App:', e);
+}
 
-export const dbAdmin = getFirestore(app, config.firestoreDatabaseId);
+let dbAdmin: any = null;
+try {
+  if (app) {
+    dbAdmin = getFirestore(app, config.firestoreDatabaseId);
+  }
+} catch (e) {
+  console.error('[Firebase] Failed to initialize Firestore dbAdmin:', e);
+}
+
+export { dbAdmin };
