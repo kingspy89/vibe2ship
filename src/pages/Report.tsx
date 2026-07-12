@@ -52,7 +52,7 @@ export function Report() {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const MAX_SIZE = 800;
+          const MAX_SIZE = 640;
 
           if (width > height && width > MAX_SIZE) {
             height *= MAX_SIZE / width;
@@ -66,7 +66,7 @@ export function Report() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          setPreview(canvas.toDataURL('image/jpeg', 0.8));
+          setPreview(canvas.toDataURL('image/jpeg', 0.65));
         };
         img.src = event.target?.result as string;
       };
@@ -104,11 +104,13 @@ export function Report() {
 
     setIsSubmitting(true);
     try {
-      let photoUrl = preview; // Use base64 for now since storage rules might not be configured
-
       // 2. Call our API
       const base64Data = preview.split(',')[1];
       const mimeType = preview.split(';')[0].split(':')[1];
+      const approxBytes = Math.ceil((base64Data.length * 3) / 4);
+      if (approxBytes > 3_500_000) {
+        throw new Error('Image is still too large for Vercel upload. Please retry with a smaller image or lower resolution.');
+      }
 
       const res = await fetch('/api/reports', {
         method: 'POST',
@@ -119,8 +121,7 @@ export function Report() {
           caption,
           lat: location.lat,
           lng: location.lng,
-          userId: user?.uid || 'anonymous',
-          photoUrl: photoUrl
+          userId: user?.uid || 'anonymous'
         })
       });
       if (!res.ok) {
