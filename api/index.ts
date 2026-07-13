@@ -177,131 +177,74 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
 
     console.log(`[Orchestrator] Starting pipeline for new report at ${lat}, ${lng}`);
 
-    // Step 1: Agent 1 (Categorization)
+    // === ONLY Agent 1: Vision Categorization (Gemini) ===
     console.log(`[Orchestrator] Running Agent 1 (Categorization)...`);
     const agent1Result = await runAgent1(photoBase64, mimeType, caption);
     console.log(`[Orchestrator] Agent 1 output:`, agent1Result);
 
-    // Step 2: Agent 2 (Deduplication)
-    console.log(`[Orchestrator] Running Agent 2 (Deduplication)...`);
-    const agent2Result = await runAgent2(
-      agent1Result.auto_description,
-      lat,
-      lng,
-      agent1Result.category
-    );
-    console.log(`[Orchestrator] Agent 2 output:`, agent2Result);
-
-    let targetIssueId = agent2Result.matched_issue_id;
-    let reportCount = 1;
-
-    const batch = dbAdmin.batch();
-    const reportRef = dbAdmin.collection('reports').doc();
     const now = Date.now();
+    const severityScore = agent1Result.severity_signal || 3;
+    const severityJustification = agent1Result.severity_justification || 'AI severity from visual analysis.';
+    let targetIssueId = 'issue_' + Date.now().toString(36);
 
-    if (agent2Result.decision === 'merge' && targetIssueId) {
-      console.log(`[Orchestrator] Merging into existing issue: ${targetIssueId}`);
-      const issueRef = dbAdmin.collection('issues').doc(targetIssueId);
-      const issueSnap = await issueRef.get();
-      if (issueSnap.exists) {
-        reportCount = (issueSnap.data()?.report_count || 1) + 1;
-      }
-      
-      // Agent 3: Re-score Severity without passing the heavy image (text-only re-scoring)
-      console.log(`[Orchestrator] Running Agent 3 (Severity re-scoring, text-only)...`);
-      const agent3Result = await runAgent3(
-        agent1Result.category,
-        agent1Result.auto_description,
-        reportCount
-      );
-      console.log(`[Orchestrator] Agent 3 output:`, agent3Result);
-
-      const priorityScore = agent3Result.urgency_score * Math.log(reportCount + 1);
-
-      batch.update(issueRef, {
-        report_count: reportCount,
-        severity_score: agent3Result.urgency_score,
-        severity_justification: agent3Result.justification,
-        priority_score: priorityScore,
-        updated_at: now
-      });
-    } else {
-      console.log(`[Orchestrator] Creating new issue...`);
-      // Bypass Agent 3 vision call - use Agent 1's combined categorization + severity scoring
-      const severityScore = agent1Result.severity_signal || 3;
-      const severityJustification = agent1Result.severity_justification || 'AI estimated severity based on visual details.';
-      
-      const priorityScore = severityScore * Math.log(2);
-
-      const newIssueRef = dbAdmin.collection('issues').doc();
-      targetIssueId = newIssueRef.id;
-
-      batch.set(newIssueRef, {
-        category: agent1Result.category,
-        auto_title: agent1Result.auto_title,
-        auto_description: agent1Result.auto_description,
-        lat,
-        lng,
-        severity_score: severityScore,
-        severity_justification: severityJustification,
-        status: 'Reported',
-        report_count: 1,
-        priority_score: priorityScore,
-        embedding_vector: agent2Result.newEmbedding,
-        created_at: now,
-        updated_at: now
-      });
-    }
-
-    // Save the report
-    let safePhotoUrl = req.body.photoUrl || '';
-    if (safePhotoUrl.length > 1000000) {
-      safePhotoUrl = ''; // Avoid Firestore limit error
-    }
-
-    batch.set(reportRef, {
-      issue_id: targetIssueId,
-      user_id: userId || 'anonymous',
-      photo_url: safePhotoUrl,
-      raw_caption: caption || '',
-      created_at: now
-    });
-
-    const notificationRef = dbAdmin.collection('notifications').doc();
-    batch.set(notificationRef, {
-      user_id: userId || 'anonymous',
-      title: agent2Result.decision === 'merge' ? 'Report Merged & Verified' : 'New Issue Registered',
-      message: agent2Result.decision === 'merge'
-        ? `Your report was merged with an existing ticket: '${agent1Result.auto_title}'.`
-        : `Your report for '${agent1Result.auto_title}' was successfully registered.`,
-      issue_id: targetIssueId,
-      read: false,
-      created_at: now
-    });
-
+    // Try to save to Firestore (non-blocking — Agent 1 output is returned regardless)
     try {
       if (dbAdmin) {
+        const batch = dbAdmin.batch();
+        const newIssueRef = dbAdmin.collection('issues').doc();
+        targetIssueId = newIssueRef.id;
+
+        batch.set(newIssueRef, {
+          category: agent1Result.category,
+          auto_title: agent1Result.auto_title,
+          auto_description: agent1Result.auto_description,
+          lat,
+          lng,
+          severity_score: severityScore,
+          severity_justification: severityJustification,
+          status: 'Reported',
+          report_count: 1,
+          priority_score: severityScore * Math.log(2),
+          created_at: now,
+          updated_at: now
+        });
+
+        const reportRef = dbAdmin.collection('reports').doc();
+        batch.set(reportRef, {
+          issue_id: targetIssueId,
+          user_id: userId || 'anonymous',
+          photo_url: '',
+          raw_caption: caption || '',
+          created_at: now
+        });
+
+        const notificationRef = dbAdmin.collection('notifications').doc();
+        batch.set(notificationRef, {
+          user_id: userId || 'anonymous',
+          title: 'New Issue Registered',
+          message: `Your report for '${agent1Result.auto_title}' was successfully registered.`,
+          issue_id: targetIssueId,
+          read: false,
+          created_at: now
+        });
+
         await batch.commit();
-        invalidatePipelineCache(agent1Result.category);
-        console.log(`[Orchestrator] Pipeline complete! Issue ID: ${targetIssueId}`);
+        console.log(`[Orchestrator] Firestore saved! Issue ID: ${targetIssueId}`);
       }
     } catch (dbErr) {
-      console.warn("[Orchestrator] Firestore batch commit failed (credentials missing on serverless environment), returning real Gemini output:", dbErr);
+      console.warn("[Orchestrator] Firestore save failed, returning Agent 1 output anyway:", dbErr);
     }
 
-    // Use Agent 3 data if it ran (merge), otherwise use Agent 1 data (create)
-    const finalSeverity = typeof agent3Result !== 'undefined' ? agent3Result.urgency_score : (agent1Result.severity_signal || 3);
-    const finalJustification = typeof agent3Result !== 'undefined' ? agent3Result.justification : (agent1Result.severity_justification || 'AI severity from visual analysis.');
-
+    // ALWAYS return Agent 1 real output
     res.json({
       success: true,
       issue_id: targetIssueId,
-      decision: agent2Result.decision,
+      decision: 'create',
       title: agent1Result.auto_title,
       category: agent1Result.category,
       description: agent1Result.auto_description,
-      severity_score: finalSeverity,
-      severity_justification: finalJustification,
+      severity_score: severityScore,
+      severity_justification: severityJustification,
       created_at: now
     });
 
