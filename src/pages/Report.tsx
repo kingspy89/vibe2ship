@@ -136,7 +136,7 @@ export function Report() {
 
       const data = await res.json();
       if (data.success) {
-        navigate(`/issue/${data.issue_id}`);
+        navigate(`/issue/${data.issue_id}`, { state: { reportResponse: data, previewImage: preview } });
       } else {
         alert("Error: " + data.error);
       }

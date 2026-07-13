@@ -293,7 +293,12 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       success: true,
       issue_id: targetIssueId,
       decision: agent2Result.decision,
-      title: agent1Result.auto_title
+      title: agent1Result.auto_title,
+      category: agent1Result.category,
+      description: agent1Result.auto_description,
+      severity_score: agent3Result.urgency_score,
+      severity_justification: agent3Result.justification,
+      created_at: now
     });
 
   } catch (error) {
