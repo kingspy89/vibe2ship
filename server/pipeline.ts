@@ -81,6 +81,21 @@ async function callGeminiEmbedding(text: string, retries = 3, delay = 2000): Pro
   }
 }
 
+async function callGeminiGenerate(model: string, options: any, retries = 4, delay = 2000): Promise<any> {
+  try {
+    const ai = await getAI();
+    return await ai.models.generateContent({ model, ...options });
+  } catch (err: any) {
+    const status = err.status || (err.error && err.error.code);
+    if (retries > 0 && (status === 429 || status === 503)) {
+      console.warn(`[Gemini] Rate limit (${status}). Retrying ${model} in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      return callGeminiGenerate(model, options, retries - 1, delay * 2);
+    }
+    throw err;
+  }
+}
+
 // Haversine distance in meters
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371e3; // metres
@@ -111,25 +126,38 @@ function cosineSimilarity(A: number[], B: number[]) {
 }
 
 // ------------------------------------------------------------------
-// AGENT 1: Vision Categorization (Groq - llama-3.2-11b-vision)
+// AGENT 1: Vision Categorization (Gemini - gemini-2.0-flash-lite)
 // ------------------------------------------------------------------
 export async function runAgent1(photoBase64: string, mimeType: string, caption?: string) {
-  const prompt = `You are a civic issue classifier. Analyze the image and respond with JSON only.
-Categories: pothole, streetlight, garbage, water_leakage, other.
-Caption: "${caption || 'None'}"
-Respond ONLY with this JSON format:
-{"category":"...","confidence":0.0,"auto_title":"max 5 words","auto_description":"max 10 words","severity_signal":1,"severity_justification":"max 8 words"}`;
+  const schema: any = {
+    type: "OBJECT",
+    properties: {
+      category: { type: "STRING", enum: ['pothole', 'streetlight', 'garbage', 'water_leakage', 'other'] },
+      confidence: { type: "NUMBER" },
+      auto_title: { type: "STRING" },
+      auto_description: { type: "STRING" },
+      severity_signal: { type: "NUMBER" },
+      severity_justification: { type: "STRING" }
+    },
+    required: ["category", "auto_title", "auto_description", "severity_signal", "severity_justification"]
+  };
 
-  const text = await callGroq('llama-3.2-11b-vision-preview', [
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: prompt },
-        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${photoBase64}` } }
-      ]
+  const prompt = `Categorize image. Caption: "${caption || 'None'}". Title max 5 words, desc max 10 words.`;
+
+  const response = await callGeminiGenerate('gemini-2.0-flash-lite', {
+    contents: [
+      prompt,
+      { inlineData: { data: photoBase64, mimeType } }
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: schema,
+      temperature: 0.1,
+      maxOutputTokens: 100
     }
-  ]);
+  });
 
+  const text = response.text;
   if (!text) throw new Error("Agent 1 returned empty response");
   return JSON.parse(text);
 }
