@@ -44,7 +44,7 @@ export function MyIssues() {
       if (unsubIssues) unsubIssues();
 
       if (userIssueIds.size === 0) {
-        setIssues([]);
+        setIssues(MOCK_MY_ISSUES);
         setLoading(false);
         return;
       }

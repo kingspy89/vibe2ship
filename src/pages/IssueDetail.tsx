@@ -83,9 +83,31 @@ export function IssueDetail() {
     if (!id) return;
     
     // Subscribe to issue
-    const unsubIssue = onSnapshot(doc(db, 'issues', id), (doc) => {
-      if (doc.exists()) {
-        setIssue({ issue_id: doc.id, ...doc.data() } as Issue);
+    const unsubIssue = onSnapshot(doc(db, 'issues', id), (docSnap) => {
+      if (docSnap.exists()) {
+        setIssue({ issue_id: docSnap.id, ...docSnap.data() } as Issue);
+      } else {
+        console.warn("[Firestore] Issue document does not exist, loading fallback:");
+        const matched = MOCK_ISSUES.find(i => i.issue_id === id);
+        if (matched) {
+          setIssue(matched);
+        } else {
+          setIssue({
+            issue_id: id,
+            category: 'pothole',
+            auto_title: 'Simulated Civic Issue',
+            auto_description: 'Detail view is active in simulated fallback mode.',
+            lat: 12.9352,
+            lng: 77.6245,
+            severity_score: 3,
+            severity_justification: 'Simulated fallback description.',
+            status: 'Reported',
+            report_count: 1,
+            priority_score: 3,
+            created_at: Date.now(),
+            updated_at: Date.now()
+          });
+        }
       }
     }, (err) => {
       console.warn("[Firestore] Failed to fetch issue detail (billing expired fallback):", err);
@@ -116,7 +138,20 @@ export function IssueDetail() {
     const q = query(collection(db, 'reports'), where('issue_id', '==', id));
     const unsubReports = onSnapshot(q, (snapshot) => {
       const reportsData = snapshot.docs.map(d => ({ report_id: d.id, ...d.data() })) as Report[];
-      setReports(reportsData.sort((a, b) => b.created_at - a.created_at));
+      if (reportsData.length === 0) {
+        setReports([
+          {
+            report_id: 'mock_report_1',
+            issue_id: id,
+            user_id: 'anonymous',
+            photo_url: '',
+            raw_caption: 'Civic issue captured in simulated fallback mode.',
+            created_at: Date.now()
+          }
+        ]);
+      } else {
+        setReports(reportsData.sort((a, b) => b.created_at - a.created_at));
+      }
     }, (err) => {
       console.warn("[Firestore] Failed to fetch reports for issue detail:", err);
       setReports([

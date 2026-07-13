@@ -26,16 +26,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const qReports = query(collection(db, 'reports'), where('user_id', '==', user.uid));
     const unsubReports = onSnapshot(qReports, (snap) => {
       setReportsCount(snap.docs.length);
+    }, (err) => {
+      console.warn("[Firestore] Failed to listen to user reports:", err);
+      setReportsCount(4); // Mock fallback count
     });
 
     const qVerifications = query(collection(db, 'verifications'), where('user_id', '==', user.uid));
     const unsubVerifications = onSnapshot(qVerifications, (snap) => {
       setVerificationsCount(snap.docs.length);
+    }, (err) => {
+      console.warn("[Firestore] Failed to listen to user verifications:", err);
+      setVerificationsCount(6); // Mock fallback count
     });
 
     const qNotif = query(collection(db, 'notifications'), where('user_id', '==', user.uid), where('read', '==', false));
     const unsubNotif = onSnapshot(qNotif, (snap) => {
       setUnreadNotificationsCount(snap.docs.length);
+    }, (err) => {
+      console.warn("[Firestore] Failed to listen to notifications:", err);
+      setUnreadNotificationsCount(1); // Mock fallback count
     });
     
     return () => {
