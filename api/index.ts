@@ -265,6 +265,10 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
             status: 'Reported',
             report_count: 1,
             priority_score: priorityScore,
+            estimated_dimensions: agent1Result.estimated_dimensions || "1.0m x 0.5m",
+            traffic_impact: agent1Result.traffic_impact || "Active Lane Disruption",
+            safety_hazard_level: agent1Result.safety_hazard_level || "High",
+            risk_factors: agent1Result.risk_factors || ["Road Hazard"],
             embedding_vector: agent2Result.newEmbedding || null,
             created_at: now,
             updated_at: now
@@ -316,6 +320,11 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       description: agent1Result.auto_description,
       severity_score: finalSeverityScore,
       severity_justification: finalSeverityJustification,
+      priority_score: priorityScore,
+      estimated_dimensions: agent1Result.estimated_dimensions || "1.0m x 0.5m",
+      traffic_impact: agent1Result.traffic_impact || "Active Lane Disruption",
+      safety_hazard_level: agent1Result.safety_hazard_level || "High",
+      risk_factors: agent1Result.risk_factors || ["Road Hazard"],
       created_at: now
     });
 

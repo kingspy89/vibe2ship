@@ -137,12 +137,36 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
       auto_title: { type: "STRING" },
       auto_description: { type: "STRING" },
       severity_signal: { type: "NUMBER" },
-      severity_justification: { type: "STRING" }
+      severity_justification: { type: "STRING" },
+      estimated_dimensions: { type: "STRING" },
+      traffic_impact: { type: "STRING" },
+      safety_hazard_level: { type: "STRING" },
+      risk_factors: {
+        type: "ARRAY",
+        items: { type: "STRING" }
+      }
     },
-    required: ["category", "auto_title", "auto_description", "severity_signal", "severity_justification"]
+    required: [
+      "category", 
+      "auto_title", 
+      "auto_description", 
+      "severity_signal", 
+      "severity_justification",
+      "estimated_dimensions",
+      "traffic_impact",
+      "safety_hazard_level",
+      "risk_factors"
+    ]
   };
 
-  const prompt = `Categorize image. Caption: "${caption || 'None'}". Title max 5 words, desc max 10 words.`;
+  const prompt = `Perform multimodal vision analysis on this civic report.
+Caption: "${caption || 'None'}".
+Title: Max 5 words.
+Description: Max 12 words summary.
+Estimated dimensions: Visual scale estimation (e.g. "1.2m x 0.8m, depth ~15cm" or "2m pile" or "Single fixture").
+Traffic impact: Short impact summary (e.g., "Active Lane Blockage", "Sidewalk Obstruction", "Low Traffic Delay").
+Safety hazard level: "Critical", "High", "Moderate", or "Low".
+Risk factors: 2-3 key risk signals (e.g. ["Vehicle Damaging", "Pedestrian Slip", "Night Risk"]).`;
 
   const response = await callGeminiGenerate('gemini-3.1-flash-lite', {
     contents: [
@@ -153,7 +177,7 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
       responseMimeType: "application/json",
       responseSchema: schema,
       temperature: 0.1,
-      maxOutputTokens: 400
+      maxOutputTokens: 600
     }
   });
 

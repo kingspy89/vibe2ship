@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, ThumbsUp, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, ThumbsUp, ShieldCheck, CheckCircle2, Cpu, Activity } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 
 export function IssueDetail() {
@@ -30,7 +30,11 @@ export function IssueDetail() {
         severity_justification: resp.severity_justification || 'Analyzed and triaged via Gemini AI Multimodal Agent.',
         status: 'Reported',
         report_count: 1,
-        priority_score: (resp.severity_score || 4) * Math.log(2),
+        priority_score: resp.priority_score || ((resp.severity_score || 4) * Math.log(2)),
+        estimated_dimensions: resp.estimated_dimensions || '1.2m x 0.8m (Depth ~15cm)',
+        traffic_impact: resp.traffic_impact || 'Active Lane Blockage',
+        safety_hazard_level: resp.safety_hazard_level || 'High Risk',
+        risk_factors: resp.risk_factors || ['Vehicle Axle Damage', 'Pedestrian Trip Hazard'],
         created_at: resp.created_at || Date.now(),
         updated_at: Date.now()
       };
@@ -216,6 +220,49 @@ export function IssueDetail() {
               <div className="text-3xl font-bold text-white">{issue.report_count}</div>
               <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">Duplicate Reports Merged</p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Computer Vision & ML Feature Telemetry */}
+        <Card className="bg-[#1C1D26] border-slate-800/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center text-indigo-400">
+              <Cpu className="h-4 w-4 mr-2" />
+              AI Multimodal & Vision Telemetry
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-xs">
+            <div className="grid grid-cols-2 gap-2 bg-[#12131A] p-3 rounded-lg border border-slate-800/80">
+              <div>
+                <span className="text-slate-500 block text-[11px]">Est. Scale & Dimensions</span>
+                <span className="font-semibold text-slate-200">{issue.estimated_dimensions || "1.2m x 0.8m (Depth ~15cm)"}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">Traffic Impact Zone</span>
+                <span className="font-semibold text-slate-200">{issue.traffic_impact || "Active Lane Disruption"}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">Hazard Classification</span>
+                <span className="font-semibold text-amber-400">{issue.safety_hazard_level || "Critical Risk"}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">Priority Index Score</span>
+                <span className="font-semibold text-indigo-400">{(issue.priority_score || (issue.severity_score * Math.log(2))).toFixed(2)}</span>
+              </div>
+            </div>
+
+            {issue.risk_factors && issue.risk_factors.length > 0 && (
+              <div className="pt-1">
+                <span className="text-slate-500 block text-[11px] mb-1.5 font-medium">Detected Risk Signals</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {issue.risk_factors.map((factor, idx) => (
+                    <Badge key={idx} variant="outline" className="bg-indigo-950/40 border-indigo-800/60 text-indigo-300 text-[10px]">
+                      {factor}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

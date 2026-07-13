@@ -17,6 +17,10 @@ export interface Issue {
   updated_at: number;
   resolved_photo_url?: string;
   resolution_notes?: string;
+  estimated_dimensions?: string;
+  traffic_impact?: string;
+  safety_hazard_level?: string;
+  risk_factors?: string[];
 }
 
 export interface Report {
