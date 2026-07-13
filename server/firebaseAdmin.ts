@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import localConfig from '../firebase-applet-config';
+import localConfig from '../firebase-applet-config.js';
 
 let config: {
   projectId: string;

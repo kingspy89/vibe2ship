@@ -1,4 +1,4 @@
-import { dbAdmin } from "./firebaseAdmin";
+import { dbAdmin } from "./firebaseAdmin.js";
 
 interface CacheItem {
   data: any[];

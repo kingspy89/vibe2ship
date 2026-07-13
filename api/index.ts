@@ -3,8 +3,8 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
-import { runAgent1, runAgent2, runAgent3, invalidatePipelineCache } from "../server/pipeline";
-import { dbAdmin } from "../server/firebaseAdmin";
+import { runAgent1, runAgent2, runAgent3, invalidatePipelineCache } from "../server/pipeline.js";
+import { dbAdmin } from "../server/firebaseAdmin.js";
 
 const app = express();
 
@@ -79,7 +79,7 @@ app.get("/api/debug", async (req, res) => {
   };
 
   try {
-    const localConfig = (await import("../firebase-applet-config")).default;
+    const localConfig = (await import("../firebase-applet-config.js")).default;
     diagnostic.firebase.localConfigKeys = Object.keys(localConfig);
   } catch (err: any) {
     diagnostic.firebase.localConfigError = err.message;
