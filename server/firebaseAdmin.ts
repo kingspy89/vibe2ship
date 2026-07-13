@@ -56,7 +56,7 @@ try {
 let dbAdmin: any = null;
 try {
   if (app) {
-    dbAdmin = getFirestore(app);
+    dbAdmin = getFirestore(app, config.firestoreDatabaseId);
   }
 } catch (e) {
   console.error('[Firebase] Failed to initialize Firestore dbAdmin:', e);
