@@ -37,31 +37,36 @@ When a citizen submits a photo and location, the server orchestrates three speci
 
 ```mermaid
 flowchart TD
-    A[Citizen reports issue via Web/Mobile] -->|POST /api/reports| B(Orchestrator)
+    A[📱 Citizen Submits Report<br/><i>Photo, Location, Caption</i>] -->|POST /api/reports| B[⚙️ Server Orchestrator]
     
-    subgraph Multi-Agent AI Pipeline
-        B --> C[Agent 1: Gemini Vision API]
-        C -->|Analyze Image, Categorize & Describe| D[Agent 2: Embedding & Proximity Deduplication]
-        D -->|1. Generate 768d text embedding| E[Gemini Embedding API]
-        D -->|2. Query category issues within search radius| F[Haversine Distance Check]
-        D -->|3. Calculate Cosine Similarity| G{Similarity > 0.85?}
-        G -->|Yes: Merge| H[Agent 3: Urgency Re-Scoring]
-        G -->|No: Create| I[Initial Severity assignment]
+    subgraph Pipeline ["🤖 Multi-Agent AI Pipeline"]
+        direction TD
+        B --> C[👁️ Agent 1: Vision Triage<br/><code>gemini-3.1-flash-lite</code>]
+        C -->|Categorize & Severity| D[🧬 Agent 2: Deduplication<br/><code>gemini-embedding-2</code>]
+        
+        D -->|Vector & Radius Check| E{Cosine Similarity<br/>> 0.85?}
+        
+        E -->|Yes: Merge Ticket| F[⚖️ Agent 3: Urgency Re-Scorer<br/><code>gemini-3.1-flash-lite</code>]
+        E -->|No: New Issue| G[⚡ Agent 3: Initial Scorer<br/><code>gemini-3.1-flash-lite</code>]
     end
-    
-    H -->|Update Issue: Increment Report Count| J[Firestore DB]
-    I -->|Create New Issue: Init Report Count = 1| J
-    
-    subgraph Offline Analytics & Dashboard Triage
-        J --> K[DBSCAN Clustering: Detect Hotspots]
-        J --> L[LightGBM Regressor: Predict Priority Ranking]
-        L --> M[SHAP: Explainable AI interpretation]
+
+    F -->|Update Issue & Add Report| H[(🔥 Firestore DB)]
+    G -->|Create New Ticket| H
+
+    subgraph Analytics ["📊 Offline Analytics & Real-Time Sync"]
+        H --> I[📍 DBSCAN Hotspot Clustering]
+        H --> J[📈 Priority Score Calculation]
+        H <--> K[🎙️ Gemini Live Audio Assistant]
+        H <--> L[🖥️ Official Triage Workbench]
     end
+
+    classDef agentStyle fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff;
+    classDef dbStyle fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef mainStyle fill:#111827,stroke:#3b82f6,stroke-width:1.5px,color:#fff;
     
-    subgraph Real-Time Interaction
-        J <-->|Real-time update| N[Official Workbench]
-        J <-->|Speech Triage & Querying| O[Gemini Live Audio Assistant]
-    end
+    class C,D,F,G agentStyle;
+    class H dbStyle;
+    class A,B,I,J,K,L mainStyle;
 ```
 
 
