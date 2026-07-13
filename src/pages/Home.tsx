@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { Issue } from '../types';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
+import { computeDBSCANHotspots } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { 
   Search, MapPin, Bell, ClipboardList, Users, Clock, Gauge, 
@@ -125,6 +126,10 @@ export function Home() {
   const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
   const [mapCenter, setMapCenter] = useState({ lat: REGIONS[0].lat, lng: REGIONS[0].lng });
   const [mapZoom, setMapZoom] = useState(REGIONS[0].zoom);
+
+  const hotspotMap = useMemo(() => {
+    return computeDBSCANHotspots(issues, 400);
+  }, [issues]);
 
   useEffect(() => {
     if (!user) return;
@@ -470,25 +475,36 @@ export function Home() {
                     disableDefaultUI={false}
                     gestureHandling="greedy"
                   >
-                    {filteredIssues.map(issue => (
-                      <AdvancedMarker 
-                        key={issue.issue_id} 
-                        position={{ lat: issue.lat, lng: issue.lng }}
-                        onClick={() => navigate(`/issue/${issue.issue_id}`)}
-                      >
-                        <div 
-                          className="flex items-center justify-center text-white text-xs font-bold rounded-full border-2 border-[#1C1D26] shadow-lg transform transition-transform hover:scale-110"
-                          style={{
-                            backgroundColor: getPinColor(issue.category, issue.severity_score),
-                            width: issue.report_count > 10 ? '40px' : '30px',
-                            height: issue.report_count > 10 ? '40px' : '30px',
-                            boxShadow: `0 0 15px ${getPinColor(issue.category, issue.severity_score)}66`
-                          }}
+                    {filteredIssues.map(issue => {
+                      const hotspot = hotspotMap[issue.issue_id];
+                      return (
+                        <AdvancedMarker 
+                          key={issue.issue_id} 
+                          position={{ lat: issue.lat, lng: issue.lng }}
+                          onClick={() => navigate(`/issue/${issue.issue_id}`)}
                         >
-                          {issue.report_count}
-                        </div>
-                      </AdvancedMarker>
-                    ))}
+                          <div className="relative flex items-center justify-center cursor-pointer">
+                            {hotspot?.is_hotspot && (
+                              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 z-20" title={hotspot.cluster_label}>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500 text-[8px] font-bold text-white items-center justify-center">🔥</span>
+                              </span>
+                            )}
+                            <div 
+                              className={`flex items-center justify-center text-white text-xs font-bold rounded-full border-2 border-[#1C1D26] shadow-lg transform transition-transform hover:scale-110 ${hotspot?.is_hotspot ? 'ring-2 ring-amber-400' : ''}`}
+                              style={{
+                                backgroundColor: getPinColor(issue.category, issue.severity_score),
+                                width: issue.report_count > 10 ? '40px' : '30px',
+                                height: issue.report_count > 10 ? '40px' : '30px',
+                                boxShadow: `0 0 15px ${getPinColor(issue.category, issue.severity_score)}66`
+                              }}
+                            >
+                              {issue.report_count}
+                            </div>
+                          </div>
+                        </AdvancedMarker>
+                      );
+                    })}
                   </Map>
                 </APIProvider>
               ) : (
@@ -628,7 +644,14 @@ export function Home() {
                   <CheckCircle2 className="h-3 w-3" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-indigo-300">Clustered Intelligence</div>
+                  <div className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                    Clustered Intelligence
+                    {hotspotMap[filteredIssues[0].issue_id]?.is_hotspot && (
+                      <Badge className="bg-red-500/20 text-red-400 border border-red-500/40 text-[9px] px-1.5 py-0">
+                        {hotspotMap[filteredIssues[0].issue_id].cluster_label}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-[10px] text-indigo-400/80 mt-1">Merged with {filteredIssues[0].report_count - 1} reports. Primary Issue: {filteredIssues[0].auto_title}</p>
                 </div>
                 <Share2 className="h-4 w-4 text-indigo-400/50 shrink-0 ml-auto" />
@@ -659,21 +682,29 @@ export function Home() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
-                    {filteredIssues.slice(0, 5).map((issue, i) => (
-                      <tr key={issue.issue_id} className="hover:bg-slate-800/30 transition-colors cursor-pointer" onClick={() => navigate(`/issue/${issue.issue_id}`)}>
-                        <td className="py-2.5 text-slate-500">{i + 1}</td>
-                        <td className="py-2.5 font-medium text-slate-300 flex items-center space-x-1.5">
-                          <div className={`w-1.5 h-1.5 rounded-full ${issue.severity_score >= 4 ? 'bg-amber-500' : 'bg-slate-500'}`}></div>
-                          <span className="capitalize">{issue.category.replace('_', ' ')}</span>
-                        </td>
-                        <td className="py-2.5 text-slate-400 truncate max-w-[120px]" title={issue.auto_title}>{issue.auto_title}</td>
-                        <td className="py-2.5 text-red-400 font-medium">{issue.severity_score}</td>
-                        <td className="py-2.5 text-slate-400">{issue.report_count}</td>
-                        <td className="py-2.5">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium border border-transparent ${issue.status === 'Resolved' ? 'text-emerald-400 bg-emerald-400/10' : issue.status === 'Reported' ? 'text-red-400 bg-red-400/10' : 'text-indigo-400 bg-indigo-400/10'}`}>{issue.status}</span>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredIssues.slice(0, 5).map((issue, i) => {
+                      const hotspot = hotspotMap[issue.issue_id];
+                      return (
+                        <tr key={issue.issue_id} className="hover:bg-slate-800/30 transition-colors cursor-pointer" onClick={() => navigate(`/issue/${issue.issue_id}`)}>
+                          <td className="py-2.5 text-slate-500">{i + 1}</td>
+                          <td className="py-2.5 font-medium text-slate-300 flex items-center space-x-1">
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${issue.severity_score >= 4 ? 'bg-amber-500' : 'bg-slate-500'}`}></div>
+                            <span className="capitalize truncate">{issue.category.replace('_', ' ')}</span>
+                            {hotspot?.is_hotspot && (
+                              <Badge className="bg-red-500/20 text-red-400 border border-red-500/40 text-[9px] px-1 py-0 ml-1 shrink-0">
+                                🔥 Cluster
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-2.5 text-slate-400 truncate max-w-[120px]" title={issue.auto_title}>{issue.auto_title}</td>
+                          <td className="py-2.5 text-red-400 font-medium">{issue.severity_score}</td>
+                          <td className="py-2.5 text-slate-400">{issue.report_count}</td>
+                          <td className="py-2.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium border border-transparent ${issue.status === 'Resolved' ? 'text-emerald-400 bg-emerald-400/10' : issue.status === 'Reported' ? 'text-red-400 bg-red-400/10' : 'text-indigo-400 bg-indigo-400/10'}`}>{issue.status}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
