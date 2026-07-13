@@ -32,8 +32,8 @@ async function callGeminiWithRetry(
   model: string,
   options: any,
   action: 'generateContent' | 'embedContent' = 'generateContent',
-  retries = 2,
-  delay = 1000
+  retries = 4,
+  delay = 2000
 ): Promise<any> {
   try {
     const ai = await getAI();
@@ -48,21 +48,15 @@ async function callGeminiWithRetry(
     const isTransient = status === 429 || status === 503 || message.includes('fetch failed') || message.includes('demand') || message.includes('UNAVAILABLE') || message.includes('Unavailable');
 
     if (retries > 0 && isTransient) {
-      console.warn(`[Gemini API] Transient error (${status || 'unknown'}). Retrying ${model} in ${delay}ms...`);
+      console.warn(`[Gemini API] Rate limit / transient error (${status || 'unknown'}). Retrying ${model} in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return callGeminiWithRetry(model, options, action, retries - 1, delay * 1.5);
+      return callGeminiWithRetry(model, options, action, retries - 1, delay * 2);
     }
-    
-    // If it's the primary generation model and it failed, try backup model gemini-2.0-flash
-    if (model === 'gemini-2.5-flash') {
-      console.warn(`[Gemini API] Primary model gemini-2.5-flash failed. Falling back to gemini-2.0-flash...`);
+
+    // If the primary generation model failed, try backup model gemini-2.0-flash
+    if (model === 'gemini-2.0-flash-lite') {
+      console.warn(`[Gemini API] Lite model gemini-2.0-flash-lite failed. Falling back to gemini-2.0-flash...`);
       return callGeminiWithRetry('gemini-2.0-flash', options, action, 1, 1000);
-    }
-    
-    // If embedding model gemini-embedding-2 fails, try backup gemini-embedding-001
-    if (model === 'gemini-embedding-2') {
-      console.warn(`[Gemini API] Primary embedding model failed. Falling back to gemini-embedding-001...`);
-      return callGeminiWithRetry('gemini-embedding-001', options, action, 1, 1000);
     }
 
     throw err;
@@ -134,10 +128,9 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
     required: ["category", "confidence", "auto_title", "auto_description", "severity_signal", "severity_justification"]
   };
 
-  const prompt = `You are an AI assistant for a civic issue reporting platform. Analyze the provided image and caption. Categorize the issue, provide a title, a short description, a severity score (1-5), and a severity justification.
-  Caption provided by user: "${caption || 'None'}"`;
+  const prompt = `Categorize civic issue image. Caption: "${caption || 'None'}". Keep title and description ultra-concise (under 10 words).`;
 
-  const response = await callGeminiWithRetry('gemini-2.5-flash', {
+  const response = await callGeminiWithRetry('gemini-2.0-flash-lite', {
     contents: [
       prompt,
       {
@@ -150,7 +143,8 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
     config: {
       responseMimeType: "application/json",
       responseSchema: schema,
-      temperature: 0.1
+      temperature: 0.1,
+      maxOutputTokens: 120
     }
   });
 
@@ -169,7 +163,7 @@ export async function runAgent2(
   category: string
 ) {
   // 1. Get embedding for new report
-  const embeddingResponse = await callGeminiWithRetry('gemini-embedding-2', {
+  const embeddingResponse = await callGeminiWithRetry('text-embedding-004', {
     contents: description,
   }, 'embedContent');
   const newEmbedding = embeddingResponse.embeddings?.[0]?.values;
@@ -311,19 +305,7 @@ export async function runAgent3(
     required: ["urgency_score", "justification"]
   };
 
-  const prompt = `You are a civic issue triage agent. Assign an urgency score (1-5) and a short justification based on the provided issue details.
-Category: ${category}
-Description: ${auto_description}
-Report Count: ${report_count} (higher report count implies wider impact)
-
-Scoring Rubric (1-5):
-1 - Minor annoyance, no safety risk (e.g., small litter, minor cosmetic damage).
-2 - Noticeable issue, low immediate risk (e.g., street light out in a non-critical area).
-3 - Moderate impact, needs addressing soon (e.g., medium pothole, moderate water leak).
-4 - Significant hazard or major disruption (e.g., large deep pothole, major water main leak, exposed wires).
-5 - Critical emergency, immediate threat to life/property (e.g., live sparking wire on sidewalk, sinkhole).
-
-Return the JSON output.`;
+  const prompt = `Rate urgency (1-5) and short justification (1 sentence) for civic report. Category: ${category}, Desc: ${auto_description}, Reports: ${report_count}.`;
 
   const contents: any[] = [prompt];
   if (photoBase64 && mimeType) {
@@ -335,12 +317,13 @@ Return the JSON output.`;
     });
   }
 
-  const response = await callGeminiWithRetry('gemini-2.5-flash', {
+  const response = await callGeminiWithRetry('gemini-2.0-flash-lite', {
     contents,
     config: {
       responseMimeType: "application/json",
       responseSchema: schema,
-      temperature: 0.1
+      temperature: 0.1,
+      maxOutputTokens: 80
     }
   });
 
