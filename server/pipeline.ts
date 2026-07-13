@@ -101,34 +101,18 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
     properties: {
       category: {
         type: "STRING",
-        enum: ['pothole', 'streetlight', 'garbage', 'water_leakage', 'other'],
-        description: "The primary category of the issue shown in the image."
+        enum: ['pothole', 'streetlight', 'garbage', 'water_leakage', 'other']
       },
-      confidence: {
-        type: "NUMBER",
-        description: "Confidence score between 0.0 and 1.0"
-      },
-      auto_title: {
-        type: "STRING",
-        description: "A short, clear title for this issue."
-      },
-      auto_description: {
-        type: "STRING",
-        description: "A 1-2 sentence description of the issue."
-      },
-      severity_signal: {
-        type: "NUMBER",
-        description: "A preliminary severity signal from 1 (low) to 5 (high) based purely on visual appearance."
-      },
-      severity_justification: {
-        type: "STRING",
-        description: "A short justification explaining why this severity score was given."
-      }
+      confidence: { type: "NUMBER" },
+      auto_title: { type: "STRING" },
+      auto_description: { type: "STRING" },
+      severity_signal: { type: "NUMBER" },
+      severity_justification: { type: "STRING" }
     },
-    required: ["category", "confidence", "auto_title", "auto_description", "severity_signal", "severity_justification"]
+    required: ["category", "auto_title", "auto_description", "severity_signal", "severity_justification"]
   };
 
-  const prompt = `Categorize civic issue image. Caption: "${caption || 'None'}". Keep title and description ultra-concise (under 10 words).`;
+  const prompt = `Categorize image. Caption: "${caption || 'None'}". Title max 3 words, desc max 6 words.`;
 
   const response = await callGeminiWithRetry('gemini-2.0-flash-lite', {
     contents: [
@@ -144,7 +128,7 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
       responseMimeType: "application/json",
       responseSchema: schema,
       temperature: 0.1,
-      maxOutputTokens: 120
+      maxOutputTokens: 60
     }
   });
 

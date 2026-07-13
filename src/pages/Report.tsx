@@ -52,7 +52,7 @@ export function Report() {
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const MAX_SIZE = 640;
+          const MAX_SIZE = 320;
 
           if (width > height && width > MAX_SIZE) {
             height *= MAX_SIZE / width;
@@ -66,7 +66,7 @@ export function Report() {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          setPreview(canvas.toDataURL('image/jpeg', 0.65));
+          setPreview(canvas.toDataURL('image/jpeg', 0.5));
         };
         img.src = event.target?.result as string;
       };
