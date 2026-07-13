@@ -10,69 +10,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { AlertTriangle, ThumbsUp, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 
-const MOCK_ISSUES: Issue[] = [
-  {
-    issue_id: 'mock_1',
-    category: 'pothole',
-    auto_title: 'Severe Pothole near Central Crossing',
-    auto_description: 'Large crater in the middle of the road causing traffic slowdowns and hazard to vehicles.',
-    lat: 12.9352,
-    lng: 77.6245,
-    severity_score: 4,
-    severity_justification: 'Deep pothole in high-speed travel lane.',
-    status: 'Reported',
-    report_count: 5,
-    priority_score: 4 * Math.log(6),
-    created_at: Date.now() - 100000,
-    updated_at: Date.now(),
-  },
-  {
-    issue_id: 'mock_2',
-    category: 'garbage',
-    auto_title: 'Overflowing Waste Bin',
-    auto_description: 'Garbage hasn\'t been collected for 3 days, spilling onto the sidewalk and walking lanes.',
-    lat: 12.9348,
-    lng: 77.6250,
-    severity_score: 3,
-    severity_justification: 'Sanitary concern and sidewalk obstruction.',
-    status: 'In Progress',
-    report_count: 8,
-    priority_score: 3 * Math.log(9),
-    created_at: Date.now() - 200000,
-    updated_at: Date.now(),
-  },
-  {
-    issue_id: 'mock_3',
-    category: 'streetlight',
-    auto_title: 'Main Streetlight Node out',
-    auto_description: 'Pitch black pedestrian crossing, dangerous at night.',
-    lat: 12.9360,
-    lng: 77.6240,
-    severity_score: 3,
-    severity_justification: 'Safety hazard during night hours.',
-    status: 'Acknowledged',
-    report_count: 2,
-    priority_score: 3 * Math.log(3),
-    created_at: Date.now() - 300000,
-    updated_at: Date.now(),
-  },
-  {
-    issue_id: 'mock_4',
-    category: 'water_leakage',
-    auto_title: 'Major Water Line Burst',
-    auto_description: 'Pipeline burst spraying clean water onto the street and flooding the curb.',
-    lat: 28.6150,
-    lng: 77.2100,
-    severity_score: 5,
-    severity_justification: 'Immediate flooding hazard and massive clean water wastage.',
-    status: 'Reported',
-    report_count: 12,
-    priority_score: 5 * Math.log(13),
-    created_at: Date.now() - 400000,
-    updated_at: Date.now(),
-  }
-];
-
 export function IssueDetail() {
   const { id } = useParams<{id: string}>();
   const location = useLocation();
@@ -87,8 +24,8 @@ export function IssueDetail() {
         category: resp.category || 'pothole',
         auto_title: resp.title || 'Verified Civic Report',
         auto_description: resp.description || 'Verified report submitted and processed by Gemini AI.',
-        lat: 12.9352,
-        lng: 77.6245,
+        lat: resp.lat || 12.9352,
+        lng: resp.lng || 77.6245,
         severity_score: resp.severity_score || 4,
         severity_justification: resp.severity_justification || 'Analyzed and triaged via Gemini AI Multimodal Agent.',
         status: 'Reported',
@@ -122,83 +59,20 @@ export function IssueDetail() {
     const unsubIssue = onSnapshot(doc(db, 'issues', id), (docSnap) => {
       if (docSnap.exists()) {
         setIssue({ issue_id: docSnap.id, ...docSnap.data() } as Issue);
-      } else if (!issue) {
-        const matched = MOCK_ISSUES.find(i => i.issue_id === id);
-        if (matched) {
-          setIssue(matched);
-        } else {
-          setIssue({
-            issue_id: id,
-            category: 'pothole',
-            auto_title: 'Civic Issue Report',
-            auto_description: 'Report triaged and logged into the civic tracking system.',
-            lat: 12.9352,
-            lng: 77.6245,
-            severity_score: 4,
-            severity_justification: 'Triaged via Gemini AI Vision pipeline.',
-            status: 'Reported',
-            report_count: 1,
-            priority_score: 4,
-            created_at: Date.now(),
-            updated_at: Date.now()
-          });
-        }
       }
     }, (err) => {
-      if (!issue) {
-        const matched = MOCK_ISSUES.find(i => i.issue_id === id);
-        if (matched) {
-          setIssue(matched);
-        } else {
-          setIssue({
-            issue_id: id,
-            category: 'pothole',
-            auto_title: 'Civic Issue Report',
-            auto_description: 'Report triaged and logged into the civic tracking system.',
-            lat: 12.9352,
-            lng: 77.6245,
-            severity_score: 4,
-            severity_justification: 'Triaged via Gemini AI Vision pipeline.',
-            status: 'Reported',
-            report_count: 1,
-            priority_score: 4,
-            created_at: Date.now(),
-            updated_at: Date.now()
-          });
-        }
-      }
+      console.warn("[Firestore] Issue snapshot listener error:", err);
     });
 
     // Subscribe to reports
     const q = query(collection(db, 'reports'), where('issue_id', '==', id));
     const unsubReports = onSnapshot(q, (snapshot) => {
       const reportsData = snapshot.docs.map(d => ({ report_id: d.id, ...d.data() })) as Report[];
-      if (reportsData.length === 0) {
-        setReports([
-          {
-            report_id: 'mock_report_1',
-            issue_id: id,
-            user_id: 'anonymous',
-            photo_url: '',
-            raw_caption: 'Civic issue captured in simulated fallback mode.',
-            created_at: Date.now()
-          }
-        ]);
-      } else {
+      if (reportsData.length > 0) {
         setReports(reportsData.sort((a, b) => b.created_at - a.created_at));
       }
     }, (err) => {
       console.warn("[Firestore] Failed to fetch reports for issue detail:", err);
-      setReports([
-        {
-          report_id: 'mock_report_1',
-          issue_id: id,
-          user_id: 'anonymous',
-          photo_url: '',
-          raw_caption: 'Simulated report description.',
-          created_at: Date.now()
-        }
-      ]);
     });
 
     return () => {
