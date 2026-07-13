@@ -163,6 +163,7 @@ app.post("/api/seed", rateLimiter, async (req, res) => {
 app.post("/api/reports", rateLimiter, async (req, res) => {
   try {
     const { photoBase64, mimeType, caption, lat, lng, userId } = req.body;
+    console.log("[api/index] received request with photoBase64 length:", photoBase64 ? photoBase64.length : "undefined");
     if (!photoBase64 || !lat || !lng) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -270,12 +271,13 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
           });
         }
 
-        // Save the report
+        const photoUrlToWrite = photoBase64 ? `data:${mimeType};base64,${photoBase64}` : '';
+        console.log("[api/index] photoUrlToWrite length:", photoUrlToWrite.length);
         const reportRef = dbAdmin.collection('reports').doc();
         batch.set(reportRef, {
           issue_id: targetIssueId,
           user_id: userId || 'anonymous',
-          photo_url: photoBase64 ? `data:${mimeType};base64,${photoBase64}` : '',
+          photo_url: photoUrlToWrite,
           raw_caption: caption || '',
           created_at: now
         });

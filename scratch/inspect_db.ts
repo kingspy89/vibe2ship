@@ -35,10 +35,7 @@ async function inspectDB() {
     reportsSnap.forEach((doc: any) => {
       const data = doc.data();
       console.log(`\nReport ID: ${doc.id}`);
-      console.log(`Issue ID: ${data.issue_id}`);
-      console.log(`Photo URL length: ${data.photo_url ? data.photo_url.length : 0}`);
-      console.log(`Photo URL preview: ${data.photo_url ? data.photo_url.substring(0, 50) : "empty"}`);
-      console.log(`Created at: ${new Date(data.created_at).toISOString()}`);
+      console.log("Raw Report Data:", JSON.stringify(data, null, 2));
     });
   } catch (e: any) {
     console.error("Firestore inspection failed:", e.message);
