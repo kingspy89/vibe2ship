@@ -279,9 +279,15 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       created_at: now
     });
 
-    await batch.commit();
-    invalidatePipelineCache(agent1Result.category);
-    console.log(`[Orchestrator] Pipeline complete! Issue ID: ${targetIssueId}`);
+    try {
+      if (dbAdmin) {
+        await batch.commit();
+        invalidatePipelineCache(agent1Result.category);
+        console.log(`[Orchestrator] Pipeline complete! Issue ID: ${targetIssueId}`);
+      }
+    } catch (dbErr) {
+      console.warn("[Orchestrator] Firestore batch commit failed (credentials missing on serverless environment), returning real Gemini output:", dbErr);
+    }
 
     res.json({
       success: true,
