@@ -289,6 +289,10 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       console.warn("[Orchestrator] Firestore batch commit failed (credentials missing on serverless environment), returning real Gemini output:", dbErr);
     }
 
+    // Use Agent 3 data if it ran (merge), otherwise use Agent 1 data (create)
+    const finalSeverity = typeof agent3Result !== 'undefined' ? agent3Result.urgency_score : (agent1Result.severity_signal || 3);
+    const finalJustification = typeof agent3Result !== 'undefined' ? agent3Result.justification : (agent1Result.severity_justification || 'AI severity from visual analysis.');
+
     res.json({
       success: true,
       issue_id: targetIssueId,
@@ -296,8 +300,8 @@ app.post("/api/reports", rateLimiter, async (req, res) => {
       title: agent1Result.auto_title,
       category: agent1Result.category,
       description: agent1Result.auto_description,
-      severity_score: agent3Result.urgency_score,
-      severity_justification: agent3Result.justification,
+      severity_score: finalSeverity,
+      severity_justification: finalJustification,
       created_at: now
     });
 
