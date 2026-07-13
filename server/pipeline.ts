@@ -69,7 +69,7 @@ async function getAI() {
 async function callGeminiEmbedding(text: string, retries = 3, delay = 2000): Promise<any> {
   try {
     const ai = await getAI();
-    return await ai.models.embedContent({ model: 'text-embedding-004', contents: text });
+    return await ai.models.embedContent({ model: 'gemini-embedding-2', contents: text });
   } catch (err: any) {
     const status = err.status || (err.error && err.error.code);
     if (retries > 0 && (status === 429 || status === 503)) {
@@ -126,7 +126,7 @@ function cosineSimilarity(A: number[], B: number[]) {
 }
 
 // ------------------------------------------------------------------
-// AGENT 1: Vision Categorization (Gemini - gemini-2.0-flash-lite)
+// AGENT 1: Vision Categorization (Gemini - gemini-3.1-flash-lite)
 // ------------------------------------------------------------------
 export async function runAgent1(photoBase64: string, mimeType: string, caption?: string) {
   const schema: any = {
@@ -144,7 +144,7 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
 
   const prompt = `Categorize image. Caption: "${caption || 'None'}". Title max 5 words, desc max 10 words.`;
 
-  const response = await callGeminiGenerate('gemini-2.0-flash-lite', {
+  const response = await callGeminiGenerate('gemini-3.1-flash-lite', {
     contents: [
       prompt,
       { inlineData: { data: photoBase64, mimeType } }
@@ -153,10 +153,11 @@ export async function runAgent1(photoBase64: string, mimeType: string, caption?:
       responseMimeType: "application/json",
       responseSchema: schema,
       temperature: 0.1,
-      maxOutputTokens: 100
+      maxOutputTokens: 400
     }
   });
 
+  console.log("[runAgent1] Full response:", JSON.stringify(response, null, 2));
   const text = response.text;
   if (!text) throw new Error("Agent 1 returned empty response");
   return JSON.parse(text);
@@ -275,8 +276,8 @@ Return a JSON object with:
       required: ["decision", "reasoning"]
     };
 
-    const mergeResponse = await callGeminiWithRetry('gemini-2.5-flash', {
-      contents: reasoningPrompt,
+    const mergeResponse = await callGeminiGenerate('gemini-3.1-flash-lite', {
+      contents: [reasoningPrompt],
       config: {
         responseMimeType: "application/json",
         responseSchema: schema,
@@ -303,12 +304,33 @@ export async function runAgent3(
   photoBase64?: string,
   mimeType?: string
 ) {
-  const prompt = `Rate urgency 1-5 for civic issue. Category: ${category}, Desc: ${auto_description}, Reports: ${report_count}.
-Respond ONLY with JSON: {"urgency_score":1,"justification":"max 8 words"}`;
+  const schema: any = {
+    type: "OBJECT",
+    properties: {
+      urgency_score: { type: "NUMBER" },
+      justification: { type: "STRING" }
+    },
+    required: ["urgency_score", "justification"]
+  };
 
-  const text = await callGroq('llama-3.2-3b-preview', [
-    { role: 'user', content: prompt }
-  ]);
+  const prompt = `Rate urgency 1-5 for civic issue. Category: ${category}, Desc: ${auto_description}, Reports: ${report_count}. Keep justification under 8 words.`;
 
-  return JSON.parse(text || '{}');
+  const contents: any[] = [prompt];
+  if (photoBase64 && mimeType) {
+    contents.push({ inlineData: { data: photoBase64, mimeType } });
+  }
+
+  const response = await callGeminiGenerate('gemini-3.1-flash-lite', {
+    contents,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: schema,
+      temperature: 0.1,
+      maxOutputTokens: 100
+    }
+  });
+
+  const text = response.text;
+  if (!text) throw new Error("Agent 3 returned empty response");
+  return JSON.parse(text);
 }
