@@ -1,4 +1,5 @@
 import { dbAdmin } from "./firebaseAdmin.js";
+import Groq from "groq-sdk";
 
 interface CacheItem {
   data: any[];
@@ -13,52 +14,69 @@ export function invalidatePipelineCache(category: string) {
   console.log(`[Cache] Invalidated active issues cache for category: ${category}`);
 }
 
+// --- Groq client (Agent 1 Vision + Agent 3 Text) ---
+let groqClient: Groq | null = null;
+
+function getGroq(): Groq {
+  if (!groqClient) {
+    const key = process.env.GROQ_API_KEY;
+    if (!key) throw new Error('GROQ_API_KEY environment variable is required');
+    groqClient = new Groq({ apiKey: key });
+  }
+  return groqClient;
+}
+
+async function callGroq(
+  model: string,
+  messages: any[],
+  retries = 3,
+  delay = 1000
+): Promise<string> {
+  try {
+    const groq = getGroq();
+    const response = await groq.chat.completions.create({
+      model,
+      messages,
+      temperature: 0.1,
+      max_tokens: 200,
+      response_format: { type: "json_object" }
+    });
+    return response.choices[0]?.message?.content || '{}';
+  } catch (err: any) {
+    const status = err.status || err.statusCode;
+    if (retries > 0 && (status === 429 || status === 503)) {
+      console.warn(`[Groq] Rate limit (${status}). Retrying ${model} in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      return callGroq(model, messages, retries - 1, delay * 2);
+    }
+    throw err;
+  }
+}
+
+// --- Gemini client (Agent 2 Embeddings only) ---
 let aiClient: any = null;
 
 async function getAI() {
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-      throw new Error('GEMINI_API_KEY environment variable is required');
-    }
-    // Dynamically load to prevent CommonJS/ESM boot-time loader errors on Vercel
+    if (!key) throw new Error('GEMINI_API_KEY environment variable is required');
     const { GoogleGenAI } = await import("@google/genai");
     aiClient = new GoogleGenAI({ apiKey: key });
   }
   return aiClient;
 }
 
-async function callGeminiWithRetry(
-  model: string,
-  options: any,
-  action: 'generateContent' | 'embedContent' = 'generateContent',
-  retries = 4,
-  delay = 2000
-): Promise<any> {
+async function callGeminiEmbedding(text: string, retries = 3, delay = 2000): Promise<any> {
   try {
     const ai = await getAI();
-    if (action === 'embedContent') {
-      return await ai.models.embedContent({ model, ...options });
-    } else {
-      return await ai.models.generateContent({ model, ...options });
-    }
+    return await ai.models.embedContent({ model: 'text-embedding-004', contents: text });
   } catch (err: any) {
     const status = err.status || (err.error && err.error.code);
-    const message = err.message || '';
-    const isTransient = status === 429 || status === 503 || message.includes('fetch failed') || message.includes('demand') || message.includes('UNAVAILABLE') || message.includes('Unavailable');
-
-    if (retries > 0 && isTransient) {
-      console.warn(`[Gemini API] Rate limit / transient error (${status || 'unknown'}). Retrying ${model} in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return callGeminiWithRetry(model, options, action, retries - 1, delay * 2);
+    if (retries > 0 && (status === 429 || status === 503)) {
+      console.warn(`[Gemini Embed] Rate limit (${status}). Retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      return callGeminiEmbedding(text, retries - 1, delay * 2);
     }
-
-    // If the primary generation model failed, try backup model gemini-2.0-flash
-    if (model === 'gemini-2.0-flash-lite') {
-      console.warn(`[Gemini API] Lite model gemini-2.0-flash-lite failed. Falling back to gemini-2.0-flash...`);
-      return callGeminiWithRetry('gemini-2.0-flash', options, action, 1, 1000);
-    }
-
     throw err;
   }
 }
@@ -93,46 +111,25 @@ function cosineSimilarity(A: number[], B: number[]) {
 }
 
 // ------------------------------------------------------------------
-// AGENT 1: Vision Categorization
+// AGENT 1: Vision Categorization (Groq - llama-3.2-11b-vision)
 // ------------------------------------------------------------------
 export async function runAgent1(photoBase64: string, mimeType: string, caption?: string) {
-  const schema: any = {
-    type: "OBJECT",
-    properties: {
-      category: {
-        type: "STRING",
-        enum: ['pothole', 'streetlight', 'garbage', 'water_leakage', 'other']
-      },
-      confidence: { type: "NUMBER" },
-      auto_title: { type: "STRING" },
-      auto_description: { type: "STRING" },
-      severity_signal: { type: "NUMBER" },
-      severity_justification: { type: "STRING" }
-    },
-    required: ["category", "auto_title", "auto_description", "severity_signal", "severity_justification"]
-  };
+  const prompt = `You are a civic issue classifier. Analyze the image and respond with JSON only.
+Categories: pothole, streetlight, garbage, water_leakage, other.
+Caption: "${caption || 'None'}"
+Respond ONLY with this JSON format:
+{"category":"...","confidence":0.0,"auto_title":"max 5 words","auto_description":"max 10 words","severity_signal":1,"severity_justification":"max 8 words"}`;
 
-  const prompt = `Categorize image. Caption: "${caption || 'None'}". Title max 3 words, desc max 6 words.`;
-
-  const response = await callGeminiWithRetry('gemini-2.0-flash-lite', {
-    contents: [
-      prompt,
-      {
-        inlineData: {
-          data: photoBase64,
-          mimeType: mimeType
-        }
-      }
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: schema,
-      temperature: 0.1,
-      maxOutputTokens: 60
+  const text = await callGroq('llama-3.2-11b-vision-preview', [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${photoBase64}` } }
+      ]
     }
-  });
+  ]);
 
-  const text = response.text;
   if (!text) throw new Error("Agent 1 returned empty response");
   return JSON.parse(text);
 }
@@ -146,10 +143,8 @@ export async function runAgent2(
   lng: number, 
   category: string
 ) {
-  // 1. Get embedding for new report
-  const embeddingResponse = await callGeminiWithRetry('text-embedding-004', {
-    contents: description,
-  }, 'embedContent');
+  // 1. Get embedding for new report (Gemini - text-embedding-004)
+  const embeddingResponse = await callGeminiEmbedding(description);
   const newEmbedding = embeddingResponse.embeddings?.[0]?.values;
   if (!newEmbedding) throw new Error("Failed to get embedding");
 
@@ -271,7 +266,7 @@ Return a JSON object with:
 }
 
 // ------------------------------------------------------------------
-// AGENT 3: Severity & Urgency Scoring
+// AGENT 3: Severity & Urgency Scoring (Groq - llama-3.2-3b)
 // ------------------------------------------------------------------
 export async function runAgent3(
   category: string,
@@ -280,36 +275,12 @@ export async function runAgent3(
   photoBase64?: string,
   mimeType?: string
 ) {
-  const schema: any = {
-    type: "OBJECT",
-    properties: {
-      urgency_score: { type: "NUMBER", description: "1 to 5, where 5 is critical/immediate danger." },
-      justification: { type: "STRING", description: "Short human-readable justification for the score." }
-    },
-    required: ["urgency_score", "justification"]
-  };
+  const prompt = `Rate urgency 1-5 for civic issue. Category: ${category}, Desc: ${auto_description}, Reports: ${report_count}.
+Respond ONLY with JSON: {"urgency_score":1,"justification":"max 8 words"}`;
 
-  const prompt = `Rate urgency (1-5) and short justification (1 sentence) for civic report. Category: ${category}, Desc: ${auto_description}, Reports: ${report_count}.`;
+  const text = await callGroq('llama-3.2-3b-preview', [
+    { role: 'user', content: prompt }
+  ]);
 
-  const contents: any[] = [prompt];
-  if (photoBase64 && mimeType) {
-    contents.push({
-      inlineData: {
-        data: photoBase64,
-        mimeType: mimeType
-      }
-    });
-  }
-
-  const response = await callGeminiWithRetry('gemini-2.0-flash-lite', {
-    contents,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: schema,
-      temperature: 0.1,
-      maxOutputTokens: 80
-    }
-  });
-
-  return JSON.parse(response.text || '{}');
+  return JSON.parse(text || '{}');
 }
