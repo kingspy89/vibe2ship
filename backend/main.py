@@ -16,11 +16,18 @@ app = FastAPI(title="CivicPulse AI Python Backend", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "*",  # Allow all origins (update to specific Vercel URL after deploy if desired)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+def root():
+    """Root endpoint — used by Render for health checks."""
+    return {"status": "ok", "service": "CivicPulse AI Backend"}
 
 class ReportRequest(BaseModel):
     photoBase64: str

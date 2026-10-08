@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: civicpulse-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    region: singapore   # Closest free region to India
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false       # You set this manually in Render dashboard
+      - key: GROQ_API_KEY
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: civicpulse-app-9bdfd
+      - key: PYTHON_VERSION
+        value: "3.11.0"
