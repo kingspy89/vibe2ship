@@ -111,7 +111,7 @@ export function Report() {
         throw new Error('Image is too large. Please use a smaller image (under 3MB).');
       }
 
-      // Use Railway backend URL in production, same-origin proxy in local dev
+      // Hit Vercel Serverless function at /api/reports
       const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
       const res = await fetch(`${API_BASE}/api/reports`, {
         method: 'POST',
