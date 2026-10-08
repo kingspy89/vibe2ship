@@ -4,6 +4,8 @@ import {
   onAuthStateChanged, 
   User, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   signOut, 
   signInWithEmailAndPassword, 
@@ -37,6 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Configure session persistence
     setPersistence(auth, browserLocalPersistence).catch((err) => {
       console.warn("Could not set auth persistence:", err);
+    });
+
+    // Handle redirect result (for Google Sign-In redirect fallback)
+    getRedirectResult(auth).catch((err) => {
+      // Silently handle — redirect result is only available after a redirect flow
+      if (err?.code !== 'auth/null-user') {
+        console.warn("Redirect result check:", err?.code || err);
+      }
     });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -93,7 +103,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    await signInWithPopup(auth, provider);
+    try {
+      // Try popup first (works on localhost and whitelisted domains)
+      await signInWithPopup(auth, provider);
+    } catch (popupErr: any) {
+      // If popup fails due to unauthorized domain, try redirect flow
+      if (popupErr?.code === 'auth/unauthorized-domain') {
+        console.warn("Popup blocked for this domain, falling back to redirect...");
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+      // Re-throw other errors (e.g., popup closed by user)
+      throw popupErr;
+    }
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
