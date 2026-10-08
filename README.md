@@ -1,19 +1,17 @@
 # CivicPulse AI
 
-A state-of-the-art citizen-official collaboration platform powered by **Gemini Multi-Agent Orchestration** and **Real-Time WebSocket Audio Assistance**. 
+A state-of-the-art citizen-official collaboration platform powered by **Gemini Multi-Agent Orchestration**, **Computer Vision Triage**, and **Real-Time Voice Assistance**. 
 
-CivicPulse AI automates the reporting, deduplication, prioritization, and tracking of municipal issues (e.g., potholes, waste disposal, broken streetlights) to reduce municipal triage overhead.
+CivicPulse AI automates the reporting, deduplication, prioritization, and tracking of municipal issues (e.g., potholes, waste disposal, broken streetlights) to reduce municipal triage overhead and accelerate city resolutions.
 
 ---
 
-### 📖 Technical Documentation & Pitch Deck
-*   **[Machine Learning & System Architecture](file:///d:/vibe2ship/ML_ARCHITECTURE.md):** Deep dive into the multi-agent AI pipeline, embedding-based deduplication algorithms, geospatial radius checks, dynamic priority formulas, and a ready-to-use 8-slide presentation deck outline.
+### 📖 Technical Documentation & Architecture
+* **[Machine Learning & System Architecture](file:///d:/vibe2ship/ML_ARCHITECTURE.md):** Deep dive into the multi-agent AI pipeline, embedding-based deduplication algorithms, geospatial radius checks, dynamic priority formulas, and slide presentation outline.
 
 ---
 
 ## 🎨 Visual Preview
-
-Here is a visual overview of the premium CivicPulse AI dark-themed dashboard and interactive features:
 
 | **City Management Dashboard & Live Map** | **Glassmorphic AI Voice Assistant** |
 | :---: | :---: |
@@ -23,11 +21,15 @@ Here is a visual overview of the premium CivicPulse AI dark-themed dashboard and
 
 ## 🚀 Key Features
 
-*   **Interactive Triage Map:** Multi-category filtering (Potholes, Water Leaks, waste, lighting) and Severity sorting (High, Medium, Low) that updates map pins and queue tables in real time.
-*   **Gemini Live Audio Assistant:** WebSocket voice assistance using `gemini-3.1-flash-live-preview` to handle reports, status checks, and leaderboard XP queries using conversational audio.
-*   **Orchestrated Multi-Agent Pipeline:** Multi-step AI processing of incoming citizen photos to auto-generate descriptions, cluster duplicate reports, and rate urgency scores.
-*   **Gamified Civic Leadership:** Active Citizen XP system (10 XP per report, 5 XP per verification) tied to a live community leaderboard.
-*   **Official Triage & Solution Workbench:** A split-pane dashboard workspace for municipal officials containing a real-time Priority Queue on the left, and an interactive Solution Workbench on the right with automated AI diagnostics, a category-specific Solution Blueprint checklist, official work logging, and status/crew deployment actions.
+* **Interactive Triage Map:** Multi-category filtering (Potholes, Water Leaks, Waste, Lighting) and severity sorting (High, Medium, Low) that updates map pins and queue tables in real time.
+* **Orchestrated Multi-Agent AI Pipeline:** 3-stage automated intelligence:
+  1. **Agent 1 (Vision Triage):** Analyzes photos via `gemini-3.1-flash-lite` for auto-categorization, title generation, and initial hazard detection.
+  2. **Agent 2 (Deduplication):** Computes text embeddings using `gemini-embedding-2` and performs geospatial radius checks to merge duplicate tickets.
+  3. **Agent 3 (Urgency Scoring):** Scores urgency (1–5) and generates human-readable reasoning based on report density and safety risks.
+* **Gemini Live Audio Assistant:** WebSocket voice assistant using `gemini-3.1-flash-live-preview` for conversational reporting, ticket lookups, and leaderboard queries.
+* **Gamified Citizen Leadership:** Real-time XP rewarding system (10 XP per report, 5 XP per verification) tied to a live community leaderboard.
+* **Official Triage & Solution Workbench:** Dual-pane command dashboard for city administrators featuring real-time Priority Queue management, AI diagnostics, and crew deployment action flows.
+* **Production-Grade Authentication:** Real Firebase Auth supporting both Google OAuth and Email/Password for Citizens and City Authorities.
 
 ---
 
@@ -69,181 +71,129 @@ flowchart TD
     class A,B,I,J,K,L mainStyle;
 ```
 
-
-1.  **Agent 1 (Vision Triage):** Processes the image and user caption using the multimodal **`gemini-3.1-flash-lite`** model to auto-categorize the issue, generate a clean title, draft a summary, and give a visual severity estimate.
-2.  **Agent 2 (Deduplication & Clustering):** Computes text embeddings using the **`gemini-embedding-2`** model and queries active Firestore tickets in the same category within a specific radius (e.g., 60m). If semantic similarity exceeds `0.85`, it runs a fast-reasoning merge confirmation.
-3.  **Agent 3 (Severity Triage):** Re-scores the urgency of the issue (1 to 5) using **`gemini-3.1-flash-lite`** based on cumulative report density, visual hazard level, and potential public safety risks, writing the justification to the Firestore transaction.
-
 ---
 
-## 📊 Prioritization Engine & ML Analytics
+## 🔐 Production-Grade Authentication
 
-To train and test priority score regression models, we maintain a synthetic municipal issue dataset containing structured features and continuous targets.
+CivicPulse AI uses a real, secure Firebase Authentication architecture with role-based access control. No mock fallbacks or hardcoded credentials are used.
 
-![Priority Score Distribution & Analysis](./assets/priority_score_distribution.png)
+### 1. Citizen Portal
+* **Google Sign-In:** 1-click Google OAuth via `signInWithPopup`.
+* **Email & Password:** Full registration and login for citizens, automatically provisioning a Firestore user document with `role: 'citizen'`.
 
-*   **Histogram (Left):** Displays the distribution of priority scores (scaled from 1.0 to 10.0) generated by the multi-agent pipeline.
-*   **Bar Chart (Right):** Illustrates the average priority score calculated across different municipal categories, highlighting which issue types typically demand faster response times.
-
----
-
-## 🔐 Whitelisted Authority Credentials (Local testing)
-
-To bypass Firebase authentication blocks (such as unauthorized localhost domain errors) during local testing, you can sign in directly using any of the following whitelisted municipal administrator accounts:
-
-| **Official Title** | **Login Email** | **Password** |
-| :--- | :--- | :--- |
-| **Super Administrator** | `admin@city.gov` | `admin123` |
-| **Chief Triage Officer** | `officer.karnan@city.gov` | `officer123` |
-| **Pothole Patrol Manager** | `pothole.triage@city.gov` | `pothole123` |
-| **Water Inspector** | `water.inspector@city.gov` | `water123` |
-| **Waste Management Lead** | `waste.manager@city.gov` | `waste123` |
-| **Power & Electricity Board** | `electricity.board@city.gov` | `power123` |
-| **Civic Department Head** | `civic.head@city.gov` | `civic123` |
-| **Ward 150 Corporator** | `corporator.ward150@city.gov` | `ward150` |
-| **Bengaluru Mayor** | `bengaluru.mayor@city.gov` | `mayor123` |
-| **Bengaluru Commissioner** | `bengaluru.commissioner@city.gov` | `comm123` |
-
-*Note: Selecting **Log in as Citizen** or **Log in as Admin** on the "Development Bypass Mode" card will automatically sign you in as a mock user.*
-
----
-
-## ⚡ Production Readiness & Hardening Strategy
-
-For transitioning from a local environment to production, the following security and performance improvements are recommended:
-
-### 1. Rate Limiting (API & WebSockets)
-*   **HTTP Endpoints:** Implement IP-based rate limiting on `/api/reports` using Redis and `express-rate-limit` to prevent brute force image submissions:
-    ```javascript
-    const rateLimit = require('express-rate-limit');
-    const RedisStore = require('rate-limit-redis');
-    
-    const reportLimiter = rateLimit({
-      store: new RedisStore({ client: redisClient }),
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 10, // Limit each IP to 10 reports per window
-      message: 'Too many reports submitted from this IP, please try again later.'
-    });
-    ```
-*   **WebSockets:** Implement a token-bucket rate limiter inside the `/api/live` handler to restrict audio packets per connection. Limit maximum concurrent active voice assistant sessions globally and close idle connections after 60 seconds of silence.
-
-### 2. Caching Strategy (Performance & Cost Optimization)
-*   **Firestore Query Caching:** Cache global statistics (e.g., active issues, resolution trends) and the leaderboard in Redis with a 5-minute Time-To-Live (TTL). This reduces Firestore read bills dramatically.
-*   **Geospatial / Deduplication Caching:** Keep active issue coordinates and their embeddings in a localized cache (e.g., Redis Geospatial index) to compute distance checks faster instead of pulling Firestore documents on every request.
-
-### 3. Scalable Vector Indexing
-*   **Vector Database Handoff:** In production, replace in-memory cosine similarity checks with a managed vector database (e.g., Pinecone, pgvector, or Firestore Vector Search). Store embeddings in the vector index and run K-Nearest Neighbor (KNN) queries filtered by category and distance coordinates.
-
-### 4. Firestore Security Rules
-Implement secure access rules to ensure database integrity:
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users can read/write their own records
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    // Issues can be read by anyone, but only updated by admins or via verified server functions
-    match /issues/{issueId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    // Reports can be created by authenticated citizens, but not edited or deleted
-    match /reports/{reportId} {
-      allow read, create: if request.auth != null;
-      allow update, delete: if false;
-    }
-  }
-}
-```
-
-### 5. Input Sanitization & File Upload Hardening
-*   **MIME Type Validation:** Ensure base64 string uploads are strictly validated on the server for valid magic numbers (signatures) of JPEG/PNG, rather than trusting the client-sent `mimeType` headers.
-*   **ClamAV Scanning:** Pass image uploads through an anti-malware scanner (e.g., ClamAV) before sending them to the Gemini API or storing them in Firebase Cloud Storage.
+### 2. Municipal Authority Portal
+* **Official Access:** Separate portal for city department officials, ward corporators, and triage leads.
+* **Role Verification:** Accounts register or authenticate with `role: 'admin'`, granting access to the `/admin` triage workbench and management controls.
+* **Server Verification:** Routes are guarded by server-backed Firestore permissions (`users/{uid}.role === 'admin'`).
 
 ---
 
 ## 💻 Running Locally
 
-This project is structured into two main components: `frontend` (React + Vite) and `backend` (FastAPI + Google GenAI SDK).
+The repository is organized as a full-stack project:
+* **Frontend:** React 19 + TypeScript + Vite + TailwindCSS (located in [`frontend/`](file:///d:/vibe2ship/frontend))
+* **Backend:** Python FastAPI + Google GenAI SDK (located in [`backend/`](file:///d:/vibe2ship/backend))
+
+### Prerequisites
+* Node.js v18+ and npm
+* Python 3.10+
+* Google Gemini API Key
 
 ### 1. Backend Setup (FastAPI)
 ```bash
 cd backend
 
-# Initialize Python virtual environment
+# Create and activate Python virtual environment
 python -m venv .venv
-
-# Activate environment (Windows)
+# On Windows:
 .venv\Scripts\activate
+# On Linux/macOS:
+# source .venv/bin/activate
 
-# Install requirements
+# Install dependencies
 pip install -r requirements.txt
 
-# Run Python FastAPI Server
-uvicorn main:app --port 3000 --reload
+# Start FastAPI server on port 3000
+python -m uvicorn main:app --host 0.0.0.0 --port 3000 --reload
 ```
 
 ### 2. Frontend Setup (React + Vite)
 ```bash
 cd frontend
 
-# Install package dependencies
+# Install packages
 npm install
 
-# Start Vite development server
+# Start Vite dev server on port 5173
 npm run dev
 ```
 
-Open the application at **`http://localhost:5173`** (Vite Dev Server) and **`http://localhost:3000`** (Python FastAPI Backend).
+### 3. Root Workspace Commands
+You can also run commands from the project root:
+```bash
+# Build frontend for production
+npm run build
+
+# Start frontend dev server
+npm run dev
+```
+
+* **Frontend UI:** Open [http://localhost:5173](http://localhost:5173)
+* **Backend API:** [http://localhost:3000](http://localhost:3000) (Interactive Swagger Docs at [http://localhost:3000/docs](http://localhost:3000/docs))
 
 ---
 
-## ☁️ Cloud Deployment Guidelines
+## ⚙️ Environment Configuration
 
-CivicPulse AI supports deployment in two primary environments depending on your feature requirements:
+Set up your `.env` file in the project root:
 
-### Option 1: Vercel (Serverless Deployments)
+```env
+# Google Gemini API Key (Required for Agent 1, 2, 3 and Live Assistant)
+GEMINI_API_KEY="your_gemini_api_key"
 
-Vercel hosts the React frontend statically and deploys backend endpoints (`/api/*`) as Serverless Functions via the included `vercel.json` configuration.
+# Groq API Key (Optional)
+GROQ_API_KEY="your_groq_api_key"
 
-#### Setup Steps:
-1. **Import the repository** into your Vercel Dashboard.
-2. **Configure Environment Variables** in Vercel settings:
-   - `GEMINI_API_KEY`: Your Gemini API key.
-   - `VITE_GOOGLE_MAPS_API_KEY`: Your Google Maps JavaScript API Key.
-3. **Deploy** the project. Vercel will build both the frontend and backend function automatically.
+# Google Maps JavaScript API Key (Required for map views)
+VITE_GOOGLE_MAPS_API_KEY="your_google_maps_api_key"
+```
 
-#### 🔐 Fix Google Authentication Issue (Authorized Domains):
-If you get an `auth/unauthorized-domain` error during Google Sign-in on Vercel:
-1. Go to the **Firebase Console** -> **Authentication** -> **Settings** tab.
-2. Under **Authorized domains**, click **Add domain**.
-3. Enter your Vercel deployment domain (e.g., `civicpulse-ai.vercel.app`).
-4. Go to **Google Cloud Console** -> **APIs & Services** -> **Credentials**.
-5. Select your OAuth 2.0 Client ID (Web Client).
-6. Under **Authorized JavaScript origins**, add your Vercel domain URL.
+---
 
-> [!WARNING]
-> **WebSocket Live Voice Assistant Limitation:**
-> Vercel Serverless Functions do not support persistent connections. Hitting the microphone to trigger the Gemini Live Assistant (`/api/live`) will fail on Vercel serverless. Follow Option 2 below if you need full WebSocket audio assistance.
+## ☁️ Deployment Guidelines
+
+### Option 1: Vercel (Frontend Web App)
+
+The repository includes a ready-to-use [`vercel.json`](file:///d:/vibe2ship/vercel.json) configured to build and deploy the React frontend:
+
+1. **Import the repository** in your Vercel Dashboard (`kingspy89/vibe2ship`).
+2. **Environment Variables:** Set `GEMINI_API_KEY` and `VITE_GOOGLE_MAPS_API_KEY` in Vercel Project Settings.
+3. **Deploy:** Vercel automatically runs the build script (`cd frontend && npm install && npm run build`) and publishes `frontend/dist`.
+
+#### 🔐 Authorizing Your Vercel Domain for Google Sign-In:
+1. Open the [Firebase Console](https://console.firebase.google.com).
+2. Go to **Authentication** → **Settings** → **Authorized domains**.
+3. Click **Add domain** and enter your Vercel domain (e.g. `civicplus-ai-git-main-kingspy89s-projects.vercel.app`).
+4. Google Sign-In will now work seamlessly on both `localhost` and your Vercel deployment!
 
 ---
 
 ### Option 2: Google Cloud Run (Full Containerized Deployment)
 
-To enable the full experience (including the real-time WebSocket Live Voice Assistant), deploy the project using the containerized `Dockerfile` to a persistent hosting environment like Google Cloud Run.
+To deploy both the frontend and persistent backend (including real-time WebSocket audio support):
 
-#### Setup Steps:
 1. Ensure the Google Cloud SDK (`gcloud`) is installed and authenticated.
-2. Run the deployment command from the project root:
+2. Deploy directly from the project root:
    ```bash
    gcloud run deploy civicpulse-ai \
      --source . \
      --platform managed \
      --allow-unauthenticated \
-     --set-env-vars="GEMINI_API_KEY=your_gemini_api_key_here,VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key_here"
+     --set-env-vars="GEMINI_API_KEY=your_gemini_api_key,VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key"
    ```
-3. Copy the returned Service URL (e.g. `https://civicpulse-ai-xxxxxx.a.run.app`).
-4. Add this Cloud Run URL to your **Firebase Authorized Domains** and **OAuth 2.0 Authorized JavaScript origins** to allow Google Sign-In.
+3. Add the Cloud Run Service URL to your **Firebase Authorized Domains**.
 
+---
+
+## 📄 License
+This project is licensed under the MIT License.
