@@ -85,10 +85,7 @@ Risk factors: 2-3 key risk signals (e.g. ["Vehicle Damaging", "Pedestrian Slip",
         model="gemini-3.1-flash-lite",
         contents=[
             prompt,
-            types.Part.from_bytes(
-                data=bytes(np.frombuffer(photo_base64.encode('utf-8'), dtype=np.uint8)) if False else None, # Inline handle
-                mime_type=mime_type
-            ) if False else {
+            {
                 "inline_data": {
                     "data": photo_base64,
                     "mime_type": mime_type

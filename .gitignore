@@ -1,8 +1,17 @@
 node_modules/
+frontend/node_modules/
 build/
 dist/
+frontend/dist/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+__pycache__/
+*/__pycache__/
+.venv/
+*/.venv/
+venv/
+*/venv/
+

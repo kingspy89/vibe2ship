@@ -1,116 +1,153 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
-import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  User, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  updateProfile,
+  setPersistence, 
+  browserLocalPersistence 
+} from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
   isAdmin: boolean;
+  userRole: 'citizen' | 'admin';
   loading: boolean;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
+  registerWithEmail: (email: string, pass: string, role?: 'citizen' | 'admin', displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
-  mockLogin?: (role: 'citizen' | 'admin', email?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const getStoredMockUser = () => {
-    try {
-      const stored = localStorage.getItem('civicpulse_mock_user');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const initialMockUser = getStoredMockUser();
-  const [user, setUser] = useState<User | null>(initialMockUser);
-  const [isAdmin, setIsAdmin] = useState(initialMockUser ? initialMockUser.role === 'admin' : false);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<'citizen' | 'admin'>('citizen');
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // If a mock user is already loaded from local storage, skip Firebase auth checks
-    const mock = localStorage.getItem('civicpulse_mock_user');
-    if (mock) {
-      setLoading(false);
-      return;
-    }
-
-    // Set persistence to LOCAL so the user stays logged in across sessions
-    setPersistence(auth, browserLocalPersistence).catch(console.error);
+    // Configure session persistence
+    setPersistence(auth, browserLocalPersistence).catch((err) => {
+      console.warn("Could not set auth persistence:", err);
+    });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // If a mock login occurred in the meantime, ignore this trigger
-      if (localStorage.getItem('civicpulse_mock_user')) return;
-
       try {
         setUser(firebaseUser);
         if (firebaseUser) {
           try {
-            // Check if user has an admin role in the users collection
-            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-            setIsAdmin(userDoc.exists() && userDoc.data().role === 'admin');
-            
-            // Save user profile without overwriting existing role
-            await setDoc(doc(db, 'users', firebaseUser.uid), {
-              email: firebaseUser.email,
-              displayName: firebaseUser.displayName,
-              photoURL: firebaseUser.photoURL,
-              lastLogin: Date.now()
-            }, { merge: true });
+            const userRef = doc(db, 'users', firebaseUser.uid);
+            const userDoc = await getDoc(userRef);
+
+            let role: 'citizen' | 'admin' = 'citizen';
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              role = data?.role === 'admin' ? 'admin' : 'citizen';
+              // Update last login
+              await setDoc(userRef, { lastLogin: Date.now() }, { merge: true });
+            } else {
+              // Provision initial profile in Firestore
+              await setDoc(userRef, {
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Citizen'),
+                photoURL: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+                role: role,
+                points: 0,
+                reports_count: 0,
+                verifications_count: 0,
+                createdAt: Date.now(),
+                lastLogin: Date.now()
+              }, { merge: true });
+            }
+
+            setIsAdmin(role === 'admin');
+            setUserRole(role);
           } catch (dbErr) {
-            console.error("Firestore DB check/write failed during auth transition:", dbErr);
+            console.error("Firestore user profile fetch/init error:", dbErr);
+            // Default to citizen if Firestore fetch fails
             setIsAdmin(false);
+            setUserRole('citizen');
           }
         } else {
           setIsAdmin(false);
+          setUserRole('citizen');
         }
       } catch (err) {
-        console.error("Auth state change handler failed:", err);
+        console.error("Auth state transition error:", err);
       } finally {
         setLoading(false);
       }
     });
+
     return unsubscribe;
   }, []);
 
   const loginWithGoogle = async () => {
-    localStorage.removeItem('civicpulse_mock_user');
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     await signInWithPopup(auth, provider);
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    localStorage.removeItem('civicpulse_mock_user');
     await signInWithEmailAndPassword(auth, email, pass);
   };
 
-  const mockLogin = (role: 'citizen' | 'admin', email?: string) => {
-    const mockUser = {
-      uid: role === 'admin' ? `mock_admin_${email ? email.replace(/[^a-zA-Z0-9]/g, '_') : 'default'}` : 'mock_citizen_uid',
-      email: email || (role === 'admin' ? 'admin@city.gov' : 'citizen@civicpulse.org'),
-      displayName: role === 'admin' ? (email ? email.split('@')[0].split('.').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Admin Officer') : 'Malav',
-      photoURL: role === 'admin' ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${email || 'Admin'}` : 'https://api.dicebear.com/7.x/avataaars/svg?seed=Malav',
-      role: role
-    } as any;
+  const registerWithEmail = async (email: string, pass: string, role: 'citizen' | 'admin' = 'citizen', displayName?: string) => {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    const resolvedName = displayName || (email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1));
     
-    localStorage.setItem('civicpulse_mock_user', JSON.stringify(mockUser));
-    setUser(mockUser);
+    try {
+      await updateProfile(cred.user, {
+        displayName: resolvedName,
+        photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(resolvedName)}`
+      });
+    } catch (profileErr) {
+      console.warn("Could not set display name on auth profile:", profileErr);
+    }
+
+    // Persist user role and profile to Firestore
+    await setDoc(doc(db, 'users', cred.user.uid), {
+      email,
+      displayName: resolvedName,
+      photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(resolvedName)}`,
+      role,
+      points: 0,
+      reports_count: 0,
+      verifications_count: 0,
+      createdAt: Date.now(),
+      lastLogin: Date.now()
+    }, { merge: true });
+
     setIsAdmin(role === 'admin');
-    setLoading(false);
+    setUserRole(role);
   };
 
   const logout = async () => {
-    localStorage.removeItem('civicpulse_mock_user');
     await signOut(auth);
     setUser(null);
     setIsAdmin(false);
+    setUserRole('citizen');
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, loginWithGoogle, loginWithEmail, logout, mockLogin }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isAdmin, 
+      userRole,
+      loading, 
+      loginWithGoogle, 
+      loginWithEmail, 
+      registerWithEmail, 
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );

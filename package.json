@@ -1,0 +1,11 @@
+{
+  "name": "civicpulse-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CivicPulse AI - Intelligent Civic Issue Reporting and Deduplication Platform",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "preview": "cd frontend && npm run preview"
+  }
+}
