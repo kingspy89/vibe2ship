@@ -36,7 +36,8 @@ export function Login() {
     const message = err?.message || '';
 
     if (code === 'auth/unauthorized-domain') {
-      return 'Google Sign-In is restricted for this domain in Firebase. Please sign in or register with Email & Password below.';
+      const currentHost = window.location.hostname;
+      return `Domain "${currentHost}" is not authorized in your Firebase Project (civicpulse-app-9bdfd). Please add "${currentHost}" to Firebase Console -> Authentication -> Settings -> Authorized Domains, or sign in / register with Email & Password below.`;
     }
     if (code === 'auth/popup-closed-by-user') {
       return 'Google Sign-In was cancelled.';
