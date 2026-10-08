@@ -7,8 +7,17 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const backendUrl = env.VITE_API_BASE_URL || 'http://localhost:3000';
 
+  const mapsApiKey = env.VITE_GOOGLE_MAPS_API_KEY || '';
+
+  const htmlPlugin = {
+    name: 'html-transform',
+    transformIndexHtml(html: string) {
+      return html.replace(/%VITE_GOOGLE_MAPS_API_KEY%/g, mapsApiKey);
+    },
+  };
+
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), htmlPlugin],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

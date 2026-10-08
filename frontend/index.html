@@ -4,7 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Civic Issue Tracker</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=%VITE_GOOGLE_MAPS_API_KEY%&libraries=places"></script>
+    <script>
+      const apiKey = "%VITE_GOOGLE_MAPS_API_KEY%";
+      if (apiKey && !apiKey.startsWith("%")) {
+        const s = document.createElement('script');
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+        s.async = true;
+        s.defer = true;
+        document.head.appendChild(s);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
