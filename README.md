@@ -166,20 +166,37 @@ service cloud.firestore {
 
 ## 💻 Running Locally
 
-1.  Clone the repository and install dependencies:
-    ```bash
-    npm install
-    ```
-2.  Set up your `.env.local` file:
-    ```env
-    GEMINI_API_KEY=your_gemini_api_key_here
-    VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key_here
-    ```
-3.  Run the application in development mode:
-    ```bash
-    npm run dev
-    ```
-4.  Open the application at **`http://localhost:3000`**.
+This project is structured into two main components: `frontend` (React + Vite) and `backend` (FastAPI + Google GenAI SDK).
+
+### 1. Backend Setup (FastAPI)
+```bash
+cd backend
+
+# Initialize Python virtual environment
+python -m venv .venv
+
+# Activate environment (Windows)
+.venv\Scripts\activate
+
+# Install requirements
+pip install -r requirements.txt
+
+# Run Python FastAPI Server
+uvicorn main:app --port 3000 --reload
+```
+
+### 2. Frontend Setup (React + Vite)
+```bash
+cd frontend
+
+# Install package dependencies
+npm install
+
+# Start Vite development server
+npm run dev
+```
+
+Open the application at **`http://localhost:5173`** (Vite Dev Server) and **`http://localhost:3000`** (Python FastAPI Backend).
 
 ---
 
