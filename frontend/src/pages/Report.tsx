@@ -104,15 +104,16 @@ export function Report() {
 
     setIsSubmitting(true);
     try {
-      // 2. Call our API
       const base64Data = preview.split(',')[1];
       const mimeType = preview.split(';')[0].split(':')[1];
       const approxBytes = Math.ceil((base64Data.length * 3) / 4);
-      if (approxBytes > 3_500_000) {
-        throw new Error('Image is still too large for Vercel upload. Please retry with a smaller image or lower resolution.');
+      if (approxBytes > 4_000_000) {
+        throw new Error('Image is too large. Please use a smaller image (under 3MB).');
       }
 
-      const res = await fetch('/api/reports', {
+      // Use Railway backend URL in production, same-origin proxy in local dev
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+      const res = await fetch(`${API_BASE}/api/reports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -2,11 +2,28 @@
   "version": 2,
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
-  "framework": "vite",
-  "rewrites": [
+  "functions": {
+    "api/reports.py": {
+      "runtime": "@vercel/python@4.5.0",
+      "maxDuration": 60
+    },
+    "api/health.py": {
+      "runtime": "@vercel/python@4.5.0",
+      "maxDuration": 10
+    }
+  },
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/api/reports",
+      "dest": "/api/reports.py"
+    },
+    {
+      "src": "/api/health",
+      "dest": "/api/health.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
