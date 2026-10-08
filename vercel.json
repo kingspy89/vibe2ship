@@ -12,18 +12,18 @@
       "maxDuration": 10
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/reports",
-      "dest": "/api/reports.py"
+      "source": "/api/reports",
+      "destination": "/api/reports.py"
     },
     {
-      "src": "/api/health",
-      "dest": "/api/health.py"
+      "source": "/api/health",
+      "destination": "/api/health.py"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

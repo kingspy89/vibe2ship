@@ -36,6 +36,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    // Safety fallback: ensure loading spinner never hangs indefinitely
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+
     // Configure session persistence
     setPersistence(auth, browserLocalPersistence).catch((err) => {
       console.warn("Could not set auth persistence:", err);
@@ -94,10 +99,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("Auth state transition error:", err);
       } finally {
         setLoading(false);
+        clearTimeout(timer);
       }
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
   }, []);
 
   const loginWithGoogle = async () => {

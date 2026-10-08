@@ -18,15 +18,33 @@ import { Community } from './pages/Community';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="flex h-screen w-full items-center justify-center text-slate-500">Loading...</div>;
-  if (!user) return <Navigate to="/login" />;
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#12131A] text-slate-300">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+          <span className="text-sm font-medium">Initializing CivicPulse...</span>
+        </div>
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, loading } = useAuth();
-  if (loading) return <div className="flex h-screen w-full items-center justify-center text-slate-500">Loading...</div>;
-  if (!user || !isAdmin) return <div className="flex h-screen w-full items-center justify-center text-red-500">Access Denied: Admins Only</div>;
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#12131A] text-slate-300">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+          <span className="text-sm font-medium">Verifying Credentials...</span>
+        </div>
+      </div>
+    );
+  }
+  if (!user || !isAdmin) return <div className="flex h-screen w-full items-center justify-center bg-[#12131A] text-red-400 font-medium">Access Denied: Admins Only</div>;
   return <>{children}</>;
 }
 
