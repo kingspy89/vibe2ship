@@ -33,11 +33,15 @@ def init_firebase():
     else:
         app = firebase_admin.get_app()
 
-    db = firestore.client(app=app)
-    database_id = config.get("firestoreDatabaseId") if config else "(default)"
-    if database_id and database_id != "(default)":
-        db._database = database_id
-    return db
+    try:
+        db = firestore.client(app=app)
+        database_id = config.get("firestoreDatabaseId") if config else "(default)"
+        if database_id and database_id != "(default)":
+            db._database = database_id
+        return db
+    except Exception as e:
+        print(f"[Firebase Admin Py] Firestore client init error: {e}")
+        return None
 
 try:
     db_admin = init_firebase()

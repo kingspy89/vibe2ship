@@ -82,7 +82,7 @@ Safety hazard level: "Critical", "High", "Moderate", or "Low".
 Risk factors: 2-3 key risk signals (e.g. ["Vehicle Damaging", "Pedestrian Slip", "Night Risk"])."""
 
     response = client.models.generate_content(
-        model="gemini-3.1-flash-lite",
+        model="gemini-2.5-flash",
         contents=[
             prompt,
             {
@@ -111,9 +111,9 @@ Risk factors: 2-3 key risk signals (e.g. ["Vehicle Damaging", "Pedestrian Slip",
 def run_agent2(description: str, lat: float, lng: float, category: str) -> dict:
     client = get_genai_client()
 
-    # 1. Get embedding (gemini-embedding-2)
+    # 1. Get embedding (text-embedding-004)
     embedding_res = client.models.embed_content(
-        model="gemini-embedding-2",
+        model="text-embedding-004",
         contents=description
     )
     
@@ -181,7 +181,7 @@ Decision rule: Return "merge" if they describe the exact same event/location haz
         }
 
         merge_res = client.models.generate_content(
-            model="gemini-3.1-flash-lite",
+            model="gemini-2.5-flash",
             contents=reasoning_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -232,7 +232,7 @@ def run_agent3(category: str, auto_description: str, report_count: int, photo_ba
         })
 
     response = client.models.generate_content(
-        model="gemini-3.1-flash-lite",
+        model="gemini-2.5-flash",
         contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",

@@ -81,12 +81,11 @@ class handler(BaseHTTPRequestHandler):
             if not _valid_image(photo_b64):
                 return self._json(400, {'error': 'Invalid image format. Only JPEG and PNG supported.'})
 
-            # ── init Firebase & agents ────────────────────────────────────────
-            db = _ensure_firebase()
-            if not db:
-                return self._json(500, {'error': 'Firestore unavailable'})
-
+            # ── init agents ───────────────────────────────────────────────────
             _ensure_agents()
+
+            # ── init Firebase Admin if available ──────────────────────────────
+            db = _ensure_firebase()
 
             now = int(time.time() * 1000)
 
@@ -96,87 +95,95 @@ class handler(BaseHTTPRequestHandler):
             # ── Agent 2 – Deduplication ───────────────────────────────────────
             a2 = _run_agent2(a1.get('auto_description', ''), lat, lng, a1.get('category', 'other'))
 
-            target_id   = a2.get('matched_issue_id')
+            target_id   = a2.get('matched_issue_id') or f"issue_{now}"
             rep_count   = 1
             severity    = a1.get('severity_signal', 3)
             justif      = a1.get('severity_justification', 'AI visual severity signal.')
             priority    = severity * math.log(2)
 
-            batch = db.batch()
+            if db:
+                try:
+                    batch = db.batch()
+                    if a2.get('decision') == 'merge' and target_id:
+                        # ── merge path ────────────────────────────────────────
+                        issue_ref  = db.collection('issues').document(target_id)
+                        issue_snap = issue_ref.get()
+                        if issue_snap.exists:
+                            rep_count = (issue_snap.to_dict().get('report_count') or 1) + 1
 
-            if a2.get('decision') == 'merge' and target_id:
-                # ── merge path ────────────────────────────────────────────────
-                issue_ref  = db.collection('issues').document(target_id)
-                issue_snap = issue_ref.get()
-                if issue_snap.exists:
-                    rep_count = (issue_snap.to_dict().get('report_count') or 1) + 1
+                        a3       = _run_agent3(a1.get('category', 'other'), a1.get('auto_description', ''), rep_count, photo_b64, mime)
+                        severity = a3.get('urgency_score', severity)
+                        justif   = a3.get('justification', justif)
+                        priority = severity * math.log(rep_count + 1)
 
-                a3       = _run_agent3(a1.get('category', 'other'), a1.get('auto_description', ''), rep_count, photo_b64, mime)
-                severity = a3.get('urgency_score', severity)
-                justif   = a3.get('justification', justif)
-                priority = severity * math.log(rep_count + 1)
+                        batch.update(issue_ref, {
+                            'report_count':          rep_count,
+                            'severity_score':        severity,
+                            'severity_justification': justif,
+                            'priority_score':        priority,
+                            'updated_at':            now,
+                        })
 
-                batch.update(issue_ref, {
-                    'report_count':          rep_count,
-                    'severity_score':        severity,
-                    'severity_justification': justif,
-                    'priority_score':        priority,
-                    'updated_at':            now,
-                })
+                    else:
+                        # ── create path ───────────────────────────────────────
+                        a3       = _run_agent3(a1.get('category', 'other'), a1.get('auto_description', ''), 1, photo_b64, mime)
+                        severity = a3.get('urgency_score', severity)
+                        justif   = a3.get('justification', justif)
+                        priority = severity * math.log(2)
 
+                        new_ref   = db.collection('issues').document()
+                        target_id = new_ref.id
+
+                        batch.set(new_ref, {
+                            'category':               a1.get('category', 'other'),
+                            'auto_title':             a1.get('auto_title', 'Civic Report'),
+                            'auto_description':       a1.get('auto_description', ''),
+                            'lat':                    lat,
+                            'lng':                    lng,
+                            'severity_score':         severity,
+                            'severity_justification': justif,
+                            'status':                 'Reported',
+                            'report_count':           1,
+                            'priority_score':         priority,
+                            'estimated_dimensions':   a1.get('estimated_dimensions', '1.0m x 0.5m'),
+                            'traffic_impact':         a1.get('traffic_impact', 'Active Lane Disruption'),
+                            'safety_hazard_level':    a1.get('safety_hazard_level', 'High'),
+                            'risk_factors':           a1.get('risk_factors', ['Road Hazard']),
+                            'embedding_vector':       a2.get('newEmbedding'),
+                            'created_at':             now,
+                            'updated_at':             now,
+                        })
+
+                    # ── write report doc ──────────────────────────────────────
+                    batch.set(db.collection('reports').document(), {
+                        'issue_id':   target_id,
+                        'user_id':    user_id,
+                        'photo_url':  f"data:{mime};base64,{photo_b64}",
+                        'raw_caption': caption,
+                        'created_at': now,
+                    })
+
+                    # ── write notification ────────────────────────────────────
+                    merged = a2.get('decision') == 'merge'
+                    batch.set(db.collection('notifications').document(), {
+                        'user_id':   user_id,
+                        'title':     'Report Merged & Verified' if merged else 'New Issue Registered',
+                        'message':   (f"Your report was merged with existing ticket: '{a1.get('auto_title')}'."
+                                      if merged else
+                                      f"Your report for '{a1.get('auto_title')}' was registered."),
+                        'issue_id':  target_id,
+                        'read':      False,
+                        'created_at': now,
+                    })
+
+                    batch.commit()
+                except Exception as db_exc:
+                    print(f"[reports] Firestore batch commit warning: {db_exc}")
             else:
-                # ── create path ───────────────────────────────────────────────
                 a3       = _run_agent3(a1.get('category', 'other'), a1.get('auto_description', ''), 1, photo_b64, mime)
                 severity = a3.get('urgency_score', severity)
                 justif   = a3.get('justification', justif)
                 priority = severity * math.log(2)
-
-                new_ref   = db.collection('issues').document()
-                target_id = new_ref.id
-
-                batch.set(new_ref, {
-                    'category':               a1.get('category', 'other'),
-                    'auto_title':             a1.get('auto_title', 'Civic Report'),
-                    'auto_description':       a1.get('auto_description', ''),
-                    'lat':                    lat,
-                    'lng':                    lng,
-                    'severity_score':         severity,
-                    'severity_justification': justif,
-                    'status':                 'Reported',
-                    'report_count':           1,
-                    'priority_score':         priority,
-                    'estimated_dimensions':   a1.get('estimated_dimensions', '1.0m x 0.5m'),
-                    'traffic_impact':         a1.get('traffic_impact', 'Active Lane Disruption'),
-                    'safety_hazard_level':    a1.get('safety_hazard_level', 'High'),
-                    'risk_factors':           a1.get('risk_factors', ['Road Hazard']),
-                    'embedding_vector':       a2.get('newEmbedding'),
-                    'created_at':             now,
-                    'updated_at':             now,
-                })
-
-            # ── write report doc ──────────────────────────────────────────────
-            batch.set(db.collection('reports').document(), {
-                'issue_id':   target_id,
-                'user_id':    user_id,
-                'photo_url':  f"data:{mime};base64,{photo_b64}",
-                'raw_caption': caption,
-                'created_at': now,
-            })
-
-            # ── write notification ────────────────────────────────────────────
-            merged = a2.get('decision') == 'merge'
-            batch.set(db.collection('notifications').document(), {
-                'user_id':   user_id,
-                'title':     'Report Merged & Verified' if merged else 'New Issue Registered',
-                'message':   (f"Your report was merged with existing ticket: '{a1.get('auto_title')}'."
-                              if merged else
-                              f"Your report for '{a1.get('auto_title')}' was registered."),
-                'issue_id':  target_id,
-                'read':      False,
-                'created_at': now,
-            })
-
-            batch.commit()
 
             return self._json(200, {
                 'success':              True,
