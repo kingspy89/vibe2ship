@@ -1,0 +1,12 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.env
+.env.*
+*.log
+.git
+civic_issues_ml_dataset.csv
+ml_pipeline_mock.py
+railway.json
+Procfile
