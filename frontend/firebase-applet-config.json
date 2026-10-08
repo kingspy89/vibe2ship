@@ -1,10 +1,10 @@
 {
-  "projectId": "gen-lang-client-0736334950",
-  "appId": "1:1001460310030:web:6a6fdfa19baad73e1a5c5f",
-  "apiKey": "AIzaSyANAp7HPvoYk9fYFchiPmWN-gOS1bfbqTk",
-  "authDomain": "gen-lang-client-0736334950.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-civicissuetracke-3959991f-9888-486b-895e-4d04a1f3c6dd",
-  "storageBucket": "gen-lang-client-0736334950.firebasestorage.app",
-  "messagingSenderId": "1001460310030",
-  "measurementId": ""
+  "projectId": "civicpulse-app-9bdfd",
+  "appId": "1:622554089762:web:02114b683fd660c76dfd7b",
+  "apiKey": "AIzaSyBDE1wyxbzOHBA_F9vuCbJ5TWco4nmrQJo",
+  "authDomain": "civicpulse-app-9bdfd.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "civicpulse-app-9bdfd.firebasestorage.app",
+  "messagingSenderId": "622554089762",
+  "measurementId": "G-G7TCH9XEW9"
 }

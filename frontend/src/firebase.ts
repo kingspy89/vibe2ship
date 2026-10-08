@@ -13,7 +13,9 @@ const app = initializeApp({
   messagingSenderId: config.messagingSenderId,
 });
 
-// Since the DB has a custom ID, we initialize it specifically
-export const db = getFirestore(app, config.firestoreDatabaseId);
+export const db = config.firestoreDatabaseId && config.firestoreDatabaseId !== "(default)"
+  ? getFirestore(app, config.firestoreDatabaseId)
+  : getFirestore(app);
+
 export const auth = getAuth(app);
 export const storage = getStorage(app);

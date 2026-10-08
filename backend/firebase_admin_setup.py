@@ -3,7 +3,7 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-project_id = "vibe2ship-e4ed0"
+project_id = "civicpulse-app-9bdfd"
 
 def init_firebase():
     global project_id
